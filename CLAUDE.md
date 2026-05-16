@@ -25,3 +25,8 @@ their players wins. Join via room code, no accounts needed.
 - Game state lives in Supabase, not in memory
 - Keep components small, one job each
 - Sport should be a parameter everywhere, never hardcode NBA
+
+## Future features (don't build yet)
+- Ball Knowledge difficulty: easy = all-stars/popular players, 
+  hard = deep cuts, bench players, two-way contracts
+- Additional sports: NFL, F1, Premier League (just add new JSON files)
