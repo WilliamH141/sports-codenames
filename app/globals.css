@@ -1,26 +1,175 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
+/* ─── design tokens ────────────────────────────────────────────────
+   Warm navy base. Vivid team colors. Lakers-gold accent.
+   The aesthetic is NBA 2K main menu / ESPN late night chrome —
+   premium, lifted surfaces with subtle glossy highlights.
+   ─────────────────────────────────────────────────────────────── */
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+  --color-bg: #0e1622;
+  --color-bg-deep: #080d15;
+  --color-surface: #1a2433;
+  --color-surface-2: #243044;
+  --color-surface-3: #2e3a52;
+  --color-border: #2e3a52;
+  --color-border-hi: #3d4b66;
+  --color-ink: #f7f7f5;
+  --color-muted: #a8b3c4;
+  --color-dim: #6b7691;
+
+  --color-team-red: #ff4655;
+  --color-team-red-deep: #c12a37;
+  --color-team-blue: #4d8eff;
+  --color-team-blue-deep: #2a64cc;
+  --color-team-gold: #fdb927;
+  --color-team-gold-hi: #ffcd5c;
+
+  --font-display: var(--font-big-shoulders);
   --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* ─── base ─────────────────────────────────────────────────────── */
+html {
+  background: var(--color-bg);
+  color: var(--color-ink);
+  color-scheme: dark;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+  background-color: var(--color-bg);
+  background-image:
+    radial-gradient(ellipse 90% 55% at 50% -15%, rgba(255, 70, 85, 0.10), transparent 65%),
+    radial-gradient(ellipse 90% 55% at 50% 115%, rgba(77, 142, 255, 0.10), transparent 65%);
+  background-attachment: fixed;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
+
+::selection {
+  background: var(--color-team-gold);
+  color: var(--color-bg);
+}
+
+/* ─── surfaces ─────────────────────────────────────────────────── */
+
+/* Premium card — subtle top gloss, inset 1px border, soft drop shadow. */
+.card-surface {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.045) 0%, rgba(255, 255, 255, 0) 55%),
+    var(--color-surface);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    inset 0 0 0 1px var(--color-border),
+    0 14px 38px -22px rgba(0, 0, 0, 0.8);
+}
+
+.card-surface-focus {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    inset 0 0 0 2px var(--color-team-blue),
+    0 0 36px -8px rgba(77, 142, 255, 0.55);
+}
+
+/* ─── headline rule (red | gold | blue) ────────────────────────── */
+.vs-rule {
+  height: 5px;
+  border-radius: 2px;
+  background: linear-gradient(
+    90deg,
+    var(--color-team-red) 0%,
+    var(--color-team-red) calc(50% - 18px),
+    transparent calc(50% - 18px),
+    transparent calc(50% - 7px),
+    var(--color-team-gold) calc(50% - 7px),
+    var(--color-team-gold) calc(50% + 7px),
+    transparent calc(50% + 7px),
+    transparent calc(50% + 18px),
+    var(--color-team-blue) calc(50% + 18px),
+    var(--color-team-blue) 100%
+  );
+}
+
+/* ─── CTA: red 2K-card button ──────────────────────────────────── */
+.cta-red {
+  position: relative;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.18) 0%, rgba(255, 255, 255, 0) 45%),
+    linear-gradient(180deg, var(--color-team-red) 0%, var(--color-team-red-deep) 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.30),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.25),
+    0 16px 32px -14px rgba(255, 70, 85, 0.65);
+  border-top: 2px solid var(--color-team-gold);
+  transition: transform 140ms cubic-bezier(0.22, 1, 0.36, 1),
+              box-shadow 140ms ease;
+  overflow: hidden;
+}
+.cta-red::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    115deg,
+    transparent 0%,
+    transparent 38%,
+    rgba(255, 255, 255, 0.22) 50%,
+    transparent 62%,
+    transparent 100%
+  );
+  transform: translateX(-110%);
+  pointer-events: none;
+}
+.cta-red:hover {
+  transform: translateY(-1px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.35),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.25),
+    0 22px 42px -14px rgba(255, 70, 85, 0.80);
+}
+.cta-red:hover::after {
+  animation: shine 900ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+.cta-red:active {
+  transform: translateY(0) scale(0.99);
+  box-shadow:
+    inset 0 2px 6px rgba(0, 0, 0, 0.35),
+    0 8px 18px -12px rgba(255, 70, 85, 0.55);
+}
+
+@keyframes shine {
+  to { transform: translateX(110%); }
+}
+
+/* ─── chip ─────────────────────────────────────────────────────── */
+.chip-gold {
+  background: var(--color-team-gold);
+  color: var(--color-bg);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.45),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.18),
+    0 6px 14px -8px rgba(253, 185, 39, 0.55);
+}
+
+/* ─── micro motion ─────────────────────────────────────────────── */
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.stagger > * {
+  opacity: 0;
+  animation: fade-up 700ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+.stagger > *:nth-child(1) { animation-delay:  60ms; }
+.stagger > *:nth-child(2) { animation-delay: 180ms; }
+.stagger > *:nth-child(3) { animation-delay: 300ms; }
+.stagger > *:nth-child(4) { animation-delay: 420ms; }
+.stagger > *:nth-child(5) { animation-delay: 540ms; }
+.stagger > *:nth-child(6) { animation-delay: 660ms; }
+.stagger > *:nth-child(7) { animation-delay: 780ms; }
+
+@keyframes ping-dot {
+  0%, 100% { opacity: 0.35; transform: scale(0.85); }
+  50%      { opacity: 1;    transform: scale(1.1);  }
+}
+.ping-dot { animation: ping-dot 1.8s ease-in-out infinite; }
