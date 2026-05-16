@@ -281,17 +281,24 @@ body {
   color: #fff;
 }
 .tile-revealed-neutral {
-  /* Warm desaturated gray, deliberately OUTSIDE the navy palette so it
-     reads as "out of play" instead of a slightly-lighter sibling of the
-     unrevealed slate. */
+  /* "Voided" treatment — warm gray (off the navy palette) plus a diagonal
+     hatch overlay that reads as crossed-out / out of play. The hatch is
+     unique to this state; team reveals and key tints stay clean. */
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.025) 0%, rgba(255, 255, 255, 0) 50%),
-    #3a3a40;
+    repeating-linear-gradient(
+      135deg,
+      transparent 0,
+      transparent 6px,
+      rgba(0, 0, 0, 0.14) 6px,
+      rgba(0, 0, 0, 0.14) 7px
+    ),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.02) 0%, rgba(255, 255, 255, 0) 50%),
+    #34343a;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.04),
     inset 0 0 0 1px rgba(255, 255, 255, 0.08);
-  color: rgba(255, 255, 255, 0.55);
-  opacity: 0.62;
+  color: rgba(255, 255, 255, 0.5);
+  opacity: 0.55;
 }
 .tile-revealed-assassin {
   background:
@@ -322,12 +329,17 @@ body {
 }
 
 /* ─── card flip system ─────────────────────────────────────────── */
-/* The button is the perspective container + click target. Inside, the
-   .flipper-inner rotates 180° around Y to reveal the .face-back. Both
-   faces are absolutely-positioned siblings; backface-visibility hides
-   whichever isn't facing the camera. */
+/* The <button> is both the click target and the perspective container.
+   Safari needs three things or this breaks: appearance: none (its
+   default -webkit-appearance: button overrides aspect-ratio and
+   sometimes breaks preserve-3d), explicit -webkit- prefixes for
+   transform-style and backface-visibility, and translate3d on each
+   face so they live in distinct z-planes. */
 .flipper {
+  appearance: none;
+  -webkit-appearance: none;
   perspective: 1200px;
+  -webkit-perspective: 1200px;
   background: transparent;
   border: 0;
   padding: 0;
@@ -337,10 +349,14 @@ body {
   width: 100%;
   height: 100%;
   transform-style: preserve-3d;
+  -webkit-transform-style: preserve-3d;
   transition: transform 620ms cubic-bezier(0.42, 0, 0.2, 1);
   will-change: transform;
 }
-.flipper-flipped { transform: rotateY(180deg); }
+.flipper-flipped {
+  transform: rotateY(180deg);
+  -webkit-transform: rotateY(180deg);
+}
 
 .flipper .face {
   position: absolute;
@@ -352,11 +368,16 @@ body {
   justify-content: center;
   padding: 0 0.25rem;
   border-radius: 0.375rem;
+  transform: translate3d(0, 0, 0);
+  -webkit-transform: translate3d(0, 0, 0);
 }
 @media (min-width: 640px) {
   .flipper .face { padding: 0 0.375rem; }
 }
-.flipper .face-back { transform: rotateY(180deg); }
+.flipper .face-back {
+  transform: rotateY(180deg) translate3d(0, 0, 0);
+  -webkit-transform: rotateY(180deg) translate3d(0, 0, 0);
+}
 
 /* Subtle hover/press feedback on tappable cards — no transform, since
    that would fight the 3D rotation. Just a brightness shift. */
