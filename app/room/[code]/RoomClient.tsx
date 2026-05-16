@@ -12,6 +12,7 @@ import ClueInput from "@/components/ClueInput";
 import EndTurnButton from "@/components/EndTurnButton";
 import JoinModal from "@/components/JoinModal";
 import Lobby from "@/components/Lobby";
+import SeatPicker from "@/components/SeatPicker";
 import TeamPanel from "@/components/TeamPanel";
 import WinnerBanner from "@/components/WinnerBanner";
 
@@ -219,6 +220,15 @@ export default function RoomClient({ initialRoom, initialPlayers, initialCards }
             remaining={remaining.blue}
           />
         </div>
+
+        {/* Seat picker — for fresh joiners / refreshed players with no seat yet. */}
+        {!gameOver && (!me?.team || !me?.role) && playerId && (
+          <SeatPicker
+            roomId={room.id}
+            playerId={playerId}
+            players={players}
+          />
+        )}
 
         {/* Status strip */}
         {gameOver && room.winner ? (

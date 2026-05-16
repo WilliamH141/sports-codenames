@@ -101,8 +101,10 @@ export async function setTeamRole(input: {
     .eq("id", input.roomId)
     .single();
   if (roomErr || !room) throw new Error("Room not found");
-  if (room.status !== "lobby")
-    throw new Error("Roles are locked once the game starts");
+  // Allow seat changes in lobby AND mid-game (so fresh joiners or refreshed
+  // players can claim empty seats); only block after the game has ended.
+  if (room.status === "finished")
+    throw new Error("Game is over");
 
   if (input.team && input.role === "spymaster") {
     const { data: existing } = await db
