@@ -134,8 +134,9 @@ export default function RoomClient({ initialRoom, initialPlayers, initialCards }
 
   if (needsName) {
     return (
-      <main className="min-h-dvh bg-zinc-50">
+      <main className="min-h-dvh">
         <JoinModal
+          roomCode={room.code}
           onSubmit={(name) => {
             setDisplayName(name);
             setNeedsName(false);
@@ -148,7 +149,7 @@ export default function RoomClient({ initialRoom, initialPlayers, initialCards }
 
   if (room.status === "lobby") {
     return (
-      <main className="min-h-dvh bg-zinc-50 p-4 sm:p-6">
+      <main className="min-h-dvh px-4 sm:px-6 py-8 sm:py-12">
         <Lobby roomId={room.id} code={room.code} playerId={playerId} players={players} />
       </main>
     );
@@ -167,7 +168,7 @@ export default function RoomClient({ initialRoom, initialPlayers, initialCards }
     me?.team === room.current_team;
 
   return (
-    <main className="min-h-dvh bg-zinc-50 p-4 sm:p-6 flex flex-col gap-4 items-stretch">
+    <main className="min-h-dvh p-4 sm:p-6 flex flex-col gap-4 items-stretch">
       <div className="flex items-center justify-between max-w-2xl w-full mx-auto">
         <div>
           <div className="text-xs text-zinc-500">Room</div>
