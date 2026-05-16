@@ -23,6 +23,13 @@ const KEY_CLASS: Record<CardType, string> = {
   assassin: "tile-key-assassin",
 };
 
+const REVEAL_TAG: Record<CardType, string> = {
+  red: "★ Red",
+  blue: "★ Blue",
+  neutral: "· Bench ·",
+  assassin: "✗ Assassin",
+};
+
 function splitName(full: string): { first: string; last: string } {
   const idx = full.indexOf(" ");
   if (idx === -1) return { first: "", last: full };
@@ -30,13 +37,9 @@ function splitName(full: string): { first: string; last: string } {
 }
 
 export default function Card({ card, showKey, clickable, onClick }: Props) {
-  const surface = card.revealed
-    ? `tile ${REVEALED_CLASS[card.card_type]}`
-    : showKey
-      ? `tile ${KEY_CLASS[card.card_type]}`
-      : "tile";
-
   const canTap = clickable && !card.revealed;
+  const frontTileClass = showKey ? `tile ${KEY_CLASS[card.card_type]}` : "tile";
+  const backTileClass = `tile ${REVEALED_CLASS[card.card_type]}`;
 
   return (
     <button
@@ -44,28 +47,37 @@ export default function Card({ card, showKey, clickable, onClick }: Props) {
       disabled={!canTap}
       onClick={() => onClick?.(card)}
       style={{ animationDelay: `${card.position * 18}ms` }}
-      className={`${surface} ${canTap ? "clickable cursor-pointer" : "cursor-default"} tile-enter aspect-[5/3] sm:aspect-[7/4] rounded-md flex items-center justify-center px-1 sm:px-1.5 outline-none focus-visible:ring-2 focus-visible:ring-team-gold`}
+      className={`flipper tile-enter aspect-[5/3] sm:aspect-[7/4] rounded-md outline-none focus-visible:ring-2 focus-visible:ring-team-gold ${canTap ? "flipper-tap cursor-pointer" : "cursor-default"}`}
     >
-      <Nameplate
-        name={card.player_name}
-        variant={card.card_type}
-        revealed={card.revealed}
-      />
+      <div className={`flipper-inner ${card.revealed ? "flipper-flipped" : ""}`}>
+        <div className={`face face-front ${frontTileClass}`}>
+          <Nameplate
+            name={card.player_name}
+            variant={card.card_type}
+            tag={null}
+          />
+        </div>
+        <div className={`face face-back ${backTileClass}`}>
+          <Nameplate
+            name={card.player_name}
+            variant={card.card_type}
+            tag={REVEAL_TAG[card.card_type]}
+          />
+        </div>
+      </div>
     </button>
   );
 }
 
 function Nameplate({
   name,
-  variant,
-  revealed,
+  tag,
 }: {
   name: string;
   variant: CardType;
-  revealed: boolean;
+  tag: string | null;
 }) {
   const { first, last } = splitName(name);
-  const showAssassinTag = revealed && variant === "assassin";
 
   return (
     <div className="flex flex-col items-center justify-center w-full px-0.5">
@@ -77,9 +89,9 @@ function Nameplate({
       <span className="mt-0.5 font-[family-name:var(--font-display)] font-black uppercase tracking-[-0.01em] leading-[0.92] text-balance text-center text-[13px] sm:text-[19px] line-clamp-2">
         {last}
       </span>
-      {showAssassinTag && (
-        <span className="mt-1 font-[family-name:var(--font-display)] font-bold uppercase text-[7px] sm:text-[9px] tracking-[0.32em] leading-none">
-          ✗ Assassin
+      {tag && (
+        <span className="mt-1 font-[family-name:var(--font-display)] font-bold uppercase text-[7px] sm:text-[9px] tracking-[0.32em] leading-none opacity-90">
+          {tag}
         </span>
       )}
     </div>
