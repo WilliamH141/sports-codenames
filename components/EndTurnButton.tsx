@@ -2,13 +2,15 @@
 
 import { useTransition } from "react";
 import { endTurn } from "@/app/actions";
+import type { Team } from "@/lib/types";
 
 type Props = {
   roomId: string;
   playerId: string;
+  team: Team;
 };
 
-export default function EndTurnButton({ roomId, playerId }: Props) {
+export default function EndTurnButton({ roomId, playerId, team }: Props) {
   const [pending, startTransition] = useTransition();
   return (
     <button
@@ -23,9 +25,9 @@ export default function EndTurnButton({ roomId, playerId }: Props) {
           }
         })
       }
-      className="rounded-md border border-zinc-300 px-4 py-2 text-sm font-medium hover:bg-zinc-100 disabled:opacity-50"
+      className={`${team === "red" ? "ghost-red" : "ghost-blue"} px-5 py-2.5 rounded-md font-[family-name:var(--font-display)] font-black tracking-[0.2em] text-xs uppercase cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed`}
     >
-      {pending ? "..." : "End turn"}
+      {pending ? "..." : "End turn →"}
     </button>
   );
 }

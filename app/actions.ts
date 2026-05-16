@@ -239,8 +239,11 @@ export async function revealCard(input: {
     .eq("id", input.roomId)
     .single();
   if (roomErr || !room) throw new Error("Room not found");
-  if (room.status !== "playing") throw new Error("Game is not in progress");
-  if (!room.current_clue_word) throw new Error("Wait for a clue first");
+  // Soft no-op on race conditions: the click arrived after the state moved on
+  // (turn ended, game finished, card already revealed by a teammate). Realtime
+  // will sync the client to the truth shortly; surfacing an error would be noise.
+  if (room.status !== "playing") return;
+  if (!room.current_clue_word) return;
 
   const { data: player, error: pErr } = await db
     .from("players")
@@ -250,7 +253,10 @@ export async function revealCard(input: {
     .single();
   if (pErr || !player) throw new Error("Player not in this room");
   if (player.role !== "guesser" || player.team !== room.current_team) {
-    throw new Error("Only the current team's guessers can reveal cards");
+    // Most commonly hit when the turn flips mid-click. Real authorization errors
+    // (player isn't a guesser at all) are rare and indistinguishable here, so
+    // we treat both as silent no-ops to keep the table calm.
+    return;
   }
 
   const { data: targetCard, error: cardErr } = await db
@@ -260,7 +266,7 @@ export async function revealCard(input: {
     .eq("room_id", input.roomId)
     .single();
   if (cardErr || !targetCard) throw new Error("Card not found");
-  if (targetCard.revealed) throw new Error("Card already revealed");
+  if (targetCard.revealed) return;
 
   const { data: existingCards, error: listErr } = await db
     .from("cards")

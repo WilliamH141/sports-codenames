@@ -141,6 +141,203 @@ body {
   to { transform: translateX(110%); }
 }
 
+/* ─── CTA: blue mirror ─────────────────────────────────────────── */
+.cta-blue {
+  position: relative;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.18) 0%, rgba(255, 255, 255, 0) 45%),
+    linear-gradient(180deg, var(--color-team-blue) 0%, var(--color-team-blue-deep) 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.30),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.25),
+    0 16px 32px -14px rgba(77, 142, 255, 0.65);
+  border-top: 2px solid var(--color-team-gold);
+  transition: transform 140ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 140ms ease;
+}
+.cta-blue:hover {
+  transform: translateY(-1px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.35),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.25),
+    0 22px 42px -14px rgba(77, 142, 255, 0.80);
+}
+.cta-blue:active {
+  transform: translateY(0) scale(0.99);
+}
+
+/* ─── ghost button (per-team) ──────────────────────────────────── */
+.ghost-red,
+.ghost-blue {
+  background: var(--color-surface);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    inset 0 0 0 1px var(--color-border);
+  transition: transform 140ms ease, box-shadow 140ms ease, color 140ms ease;
+}
+.ghost-red       { color: var(--color-team-red); }
+.ghost-blue      { color: var(--color-team-blue); }
+.ghost-red:hover {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    inset 0 0 0 1px var(--color-team-red),
+    0 12px 28px -16px rgba(255, 70, 85, 0.55);
+  transform: translateY(-1px);
+}
+.ghost-blue:hover {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    inset 0 0 0 1px var(--color-team-blue),
+    0 12px 28px -16px rgba(77, 142, 255, 0.55);
+  transform: translateY(-1px);
+}
+
+/* ─── board tiles ──────────────────────────────────────────────── */
+
+/* Unrevealed front (default surface for guessers). */
+.tile {
+  position: relative;
+  overflow: hidden;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.045) 0%, rgba(255, 255, 255, 0) 55%),
+    var(--color-surface);
+  color: var(--color-ink);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    inset 0 0 0 1px var(--color-border),
+    0 6px 16px -10px rgba(0, 0, 0, 0.7);
+  transition:
+    transform 140ms cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 200ms ease,
+    background 320ms ease;
+}
+.tile.clickable:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    inset 0 0 0 1px var(--color-border-hi),
+    0 14px 28px -12px rgba(0, 0, 0, 0.8);
+}
+.tile.clickable:active {
+  transform: translateY(0) scale(0.97);
+  box-shadow:
+    inset 0 2px 6px rgba(0, 0, 0, 0.4);
+}
+
+/* Spymaster key tints (unrevealed). */
+.tile-key-red {
+  background:
+    linear-gradient(180deg, rgba(255, 70, 85, 0.22) 0%, rgba(255, 70, 85, 0.08) 100%),
+    var(--color-surface);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    inset 0 0 0 1px rgba(255, 70, 85, 0.5);
+  border-top: 2px solid var(--color-team-red);
+}
+.tile-key-blue {
+  background:
+    linear-gradient(180deg, rgba(77, 142, 255, 0.22) 0%, rgba(77, 142, 255, 0.08) 100%),
+    var(--color-surface);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    inset 0 0 0 1px rgba(77, 142, 255, 0.5);
+  border-top: 2px solid var(--color-team-blue);
+}
+.tile-key-neutral {
+  background: var(--color-surface-2);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    inset 0 0 0 1px var(--color-border-hi);
+}
+.tile-key-assassin {
+  background:
+    linear-gradient(180deg, rgba(255, 70, 85, 0.10) 0%, rgba(0, 0, 0, 0.45) 100%),
+    var(--color-bg-deep);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 70, 85, 0.35),
+    inset 0 0 0 1.5px rgba(255, 70, 85, 0.55);
+}
+
+/* Revealed states (fully colored). */
+.tile-revealed-red {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.15) 0%, rgba(255, 255, 255, 0) 35%),
+    linear-gradient(180deg, var(--color-team-red) 0%, var(--color-team-red-deep) 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.3),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.25),
+    0 8px 22px -12px rgba(255, 70, 85, 0.55);
+  color: #fff;
+}
+.tile-revealed-blue {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.15) 0%, rgba(255, 255, 255, 0) 35%),
+    linear-gradient(180deg, var(--color-team-blue) 0%, var(--color-team-blue-deep) 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.3),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.25),
+    0 8px 22px -12px rgba(77, 142, 255, 0.55);
+  color: #fff;
+}
+.tile-revealed-neutral {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04) 0%, rgba(255, 255, 255, 0) 50%),
+    var(--color-surface-3);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    inset 0 0 0 1px var(--color-border);
+  color: var(--color-muted);
+  opacity: 0.75;
+}
+.tile-revealed-assassin {
+  background:
+    linear-gradient(180deg, rgba(255, 70, 85, 0.20) 0%, rgba(0, 0, 0, 0.6) 60%),
+    #000;
+  box-shadow:
+    inset 0 0 0 2px var(--color-team-red),
+    0 0 40px -8px rgba(255, 70, 85, 0.7);
+  color: var(--color-team-red);
+}
+
+/* One-shot pop when a tile becomes revealed. */
+@keyframes tile-pop {
+  0%   { transform: scale(1); }
+  35%  { transform: scale(1.06); }
+  100% { transform: scale(1); }
+}
+.tile-just-revealed { animation: tile-pop 380ms cubic-bezier(0.22, 1, 0.36, 1); }
+
+/* Cascading board entrance — wave from top-left to bottom-right. */
+@keyframes tile-rise {
+  from { opacity: 0; transform: translateY(8px) scale(0.96); }
+  to   { opacity: 1; transform: translateY(0)   scale(1);     }
+}
+.tile-enter {
+  opacity: 0;
+  animation: tile-rise 500ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+/* ─── turn pill / clue bar ─────────────────────────────────────── */
+.bar-red {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0) 50%),
+    linear-gradient(90deg, rgba(255, 70, 85, 0.2) 0%, rgba(255, 70, 85, 0.08) 100%),
+    var(--color-surface);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    inset 0 0 0 1px rgba(255, 70, 85, 0.4);
+  border-top: 2px solid var(--color-team-red);
+}
+.bar-blue {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0) 50%),
+    linear-gradient(90deg, rgba(77, 142, 255, 0.2) 0%, rgba(77, 142, 255, 0.08) 100%),
+    var(--color-surface);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    inset 0 0 0 1px rgba(77, 142, 255, 0.4);
+  border-top: 2px solid var(--color-team-blue);
+}
+
 /* ─── chip ─────────────────────────────────────────────────────── */
 .chip-gold {
   background: var(--color-team-gold);

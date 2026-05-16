@@ -10,6 +10,8 @@ type Props = {
   currentTeam: Team | null;
   gameOver: boolean;
   awaitingClue: boolean;
+  /** True while a reveal is in flight; disables further taps to prevent races. */
+  locked?: boolean;
   onCardClick: (card: CardModel) => void;
 };
 
@@ -20,12 +22,14 @@ export default function Board({
   currentTeam,
   gameOver,
   awaitingClue,
+  locked = false,
   onCardClick,
 }: Props) {
   const showKey = gameOver || viewerRole === "spymaster";
   const sorted = [...cards].sort((a, b) => a.position - b.position);
 
   const canClick =
+    !locked &&
     !gameOver &&
     !awaitingClue &&
     viewerRole === "guesser" &&
@@ -33,7 +37,9 @@ export default function Board({
     viewerTeam === currentTeam;
 
   return (
-    <div className="grid grid-cols-5 gap-1.5 sm:gap-2.5 w-full max-w-2xl mx-auto">
+    <div
+      className={`grid grid-cols-5 gap-1.5 sm:gap-2 w-full transition-opacity ${locked ? "opacity-80" : ""}`}
+    >
       {sorted.map((card) => (
         <Card
           key={card.id}
