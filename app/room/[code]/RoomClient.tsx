@@ -5,7 +5,7 @@ import Link from "next/link";
 import { getBrowserSupabase } from "@/lib/supabase/browser";
 import { getDisplayName, getOrCreatePlayerId, setDisplayName } from "@/lib/identity";
 import { joinRoom, revealCard } from "@/app/actions";
-import type { Card, Player, Room, Team } from "@/lib/types";
+import type { Card, Member, Room, Team } from "@/lib/types";
 import Board from "@/components/Board";
 import ClueBanner from "@/components/ClueBanner";
 import ClueInput from "@/components/ClueInput";
@@ -18,18 +18,18 @@ import WinnerBanner from "@/components/WinnerBanner";
 
 type Props = {
   initialRoom: Room;
-  initialPlayers: Player[];
+  initialMembers: Member[];
   initialCards: Card[];
 };
 
-export default function RoomClient({ initialRoom, initialPlayers, initialCards }: Props) {
+export default function RoomClient({ initialRoom, initialMembers, initialCards }: Props) {
   const [room, setRoom] = useState<Room>(initialRoom);
-  const [players, setPlayers] = useState<Player[]>(initialPlayers);
+  const [members, setMembers] = useState<Member[]>(initialMembers);
   const [cards, setCards] = useState<Card[]>(initialCards);
   const [playerId, setPlayerId] = useState<string>("");
   const [needsName, setNeedsName] = useState<boolean>(false);
   const [revealing, setRevealing] = useState(false);
-  const [onlinePlayerIds, setOnlinePlayerIds] = useState<Set<string>>(new Set());
+  const [onlineMemberIds, setOnlineMemberIds] = useState<Set<string>>(new Set());
   const [presenceLoaded, setPresenceLoaded] = useState(false);
   const revealInFlight = useRef(false);
   const joinedRef = useRef(false);
@@ -64,8 +64,8 @@ export default function RoomClient({ initialRoom, initialPlayers, initialCards }
   }, [doJoin]);
 
   // Realtime subscriptions + Presence. The Presence layer rides the same
-  // WebSocket and tells us which playerIds currently have a live tab open —
-  // that's how we detect "spymaster bailed without clicking leave."
+  // WebSocket and tells us which member IDs currently have a live tab open —
+  // that's how we detect "coach bailed without clicking leave."
   useEffect(() => {
     if (!playerId) return;
     const supabase = getBrowserSupabase();
@@ -82,15 +82,15 @@ export default function RoomClient({ initialRoom, initialPlayers, initialCards }
       )
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "players", filter: `room_id=eq.${room.id}` },
+        { event: "*", schema: "public", table: "members", filter: `room_id=eq.${room.id}` },
         (payload) => {
-          setPlayers((prev) => {
+          setMembers((prev) => {
             if (payload.eventType === "DELETE") {
               const old = payload.old as { id?: string };
-              return prev.filter((p) => p.id !== old.id);
+              return prev.filter((m) => m.id !== old.id);
             }
-            const next = payload.new as Player;
-            const idx = prev.findIndex((p) => p.id === next.id);
+            const next = payload.new as Member;
+            const idx = prev.findIndex((m) => m.id === next.id);
             if (idx === -1) return [...prev, next];
             const copy = prev.slice();
             copy[idx] = next;
@@ -114,7 +114,7 @@ export default function RoomClient({ initialRoom, initialPlayers, initialCards }
       )
       .on("presence", { event: "sync" }, () => {
         const state = channel.presenceState();
-        setOnlinePlayerIds(new Set(Object.keys(state)));
+        setOnlineMemberIds(new Set(Object.keys(state)));
         setPresenceLoaded(true);
       })
       .subscribe(async (status) => {
@@ -128,7 +128,7 @@ export default function RoomClient({ initialRoom, initialPlayers, initialCards }
     };
   }, [room.id, playerId]);
 
-  const me = useMemo(() => players.find((p) => p.id === playerId) ?? null, [players, playerId]);
+  const me = useMemo(() => members.find((m) => m.id === playerId) ?? null, [members, playerId]);
 
   const remaining = useMemo(() => {
     const target = (team: Team) => (team === room.starting_team ? 9 : 8);
@@ -181,8 +181,8 @@ export default function RoomClient({ initialRoom, initialPlayers, initialCards }
           roomId={room.id}
           code={room.code}
           playerId={playerId}
-          players={players}
-          onlinePlayerIds={onlinePlayerIds}
+          members={members}
+          onlineMemberIds={onlineMemberIds}
           presenceLoaded={presenceLoaded}
         />
       </main>
@@ -192,13 +192,13 @@ export default function RoomClient({ initialRoom, initialPlayers, initialCards }
   const gameOver = room.status === "finished";
   const awaitingClue = !room.current_clue_word && !gameOver;
   const canSubmitClue =
-    me?.role === "spymaster" &&
+    me?.role === "coach" &&
     me?.team === room.current_team &&
     awaitingClue;
   const showEndTurn =
     !gameOver &&
     !awaitingClue &&
-    me?.role === "guesser" &&
+    me?.role === "player" &&
     me?.team === room.current_team;
 
   return (
@@ -232,29 +232,31 @@ export default function RoomClient({ initialRoom, initialPlayers, initialCards }
         <div className="grid grid-cols-2 gap-2 sm:gap-3">
           <TeamPanel
             team="red"
-            players={players.filter((p) => p.team === "red")}
+            members={members.filter((m) => m.team === "red")}
             current={!gameOver && room.current_team === "red"}
             remaining={remaining.red}
-            onlinePlayerIds={onlinePlayerIds}
+            phase={!gameOver && room.current_team === "red" ? (room.current_clue_word ? "guess" : "clue") : undefined}
+            onlineMemberIds={onlineMemberIds}
             presenceLoaded={presenceLoaded}
           />
           <TeamPanel
             team="blue"
-            players={players.filter((p) => p.team === "blue")}
+            members={members.filter((m) => m.team === "blue")}
             current={!gameOver && room.current_team === "blue"}
             remaining={remaining.blue}
-            onlinePlayerIds={onlinePlayerIds}
+            phase={!gameOver && room.current_team === "blue" ? (room.current_clue_word ? "guess" : "clue") : undefined}
+            onlineMemberIds={onlineMemberIds}
             presenceLoaded={presenceLoaded}
           />
         </div>
 
-        {/* Seat picker — for fresh joiners / refreshed players with no seat yet. */}
+        {/* Seat picker — for fresh joiners / refreshed members with no seat yet. */}
         {!gameOver && (!me?.team || !me?.role) && playerId && (
           <SeatPicker
             roomId={room.id}
             playerId={playerId}
-            players={players}
-            onlinePlayerIds={onlinePlayerIds}
+            members={members}
+            onlineMemberIds={onlineMemberIds}
             presenceLoaded={presenceLoaded}
           />
         )}
@@ -322,7 +324,7 @@ function AwaitingStrip({ team }: { team: Team }) {
         <span className={team === "red" ? "text-team-red" : "text-team-blue"}>
           {team}
         </span>{" "}
-        spymaster
+        coach
       </span>
     </div>
   );

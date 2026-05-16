@@ -56,7 +56,7 @@ export default function Home() {
 
           {/* Flavor copy */}
           <p className="mt-7 text-center text-muted text-sm leading-relaxed mx-auto max-w-xs">
-            Two teams. One spymaster each.{" "}
+            Two teams. One coach each.{" "}
             <span className="text-ink font-semibold">Find your roster.</span>{" "}
             <span className="text-team-red font-semibold">Dodge the assassin.</span>
           </p>

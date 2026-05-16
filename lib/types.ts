@@ -1,7 +1,7 @@
 export type Sport = "nba" | (string & {});
 
 export type Team = "red" | "blue";
-export type Role = "spymaster" | "guesser";
+export type Role = "coach" | "player";
 export type GameStatus = "lobby" | "playing" | "finished";
 export type CardType = Team | "neutral" | "assassin";
 
@@ -19,7 +19,7 @@ export type Room = {
   created_at: string;
 };
 
-export type Player = {
+export type Member = {
   id: string;
   room_id: string;
   display_name: string;

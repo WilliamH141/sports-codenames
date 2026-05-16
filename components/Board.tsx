@@ -25,14 +25,14 @@ export default function Board({
   locked = false,
   onCardClick,
 }: Props) {
-  const showKey = gameOver || viewerRole === "spymaster";
+  const showKey = gameOver || viewerRole === "coach";
   const sorted = [...cards].sort((a, b) => a.position - b.position);
 
   const canClick =
     !locked &&
     !gameOver &&
     !awaitingClue &&
-    viewerRole === "guesser" &&
+    viewerRole === "player" &&
     viewerTeam !== null &&
     viewerTeam === currentTeam;
 

@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { getServerSupabase } from "@/lib/supabase/server";
-import type { Card, Player, Room } from "@/lib/types";
+import type { Card, Member, Room } from "@/lib/types";
 import RoomClient from "./RoomClient";
 
 type Params = Promise<{ code: string }>;
@@ -19,9 +19,9 @@ export default async function RoomPage({ params }: { params: Params }) {
     .single();
   if (error || !room) notFound();
 
-  const [{ data: players }, { data: cards }] = await Promise.all([
+  const [{ data: members }, { data: cards }] = await Promise.all([
     db
-      .from("players")
+      .from("members")
       .select("id, room_id, display_name, team, role, joined_at")
       .eq("room_id", room.id),
     db
@@ -33,7 +33,7 @@ export default async function RoomPage({ params }: { params: Params }) {
   return (
     <RoomClient
       initialRoom={room as Room}
-      initialPlayers={(players ?? []) as Player[]}
+      initialMembers={(members ?? []) as Member[]}
       initialCards={(cards ?? []) as Card[]}
     />
   );

@@ -4,7 +4,7 @@ import type { Card as CardModel, CardType } from "@/lib/types";
 
 type Props = {
   card: CardModel;
-  showKey: boolean; // spymaster view OR game over
+  showKey: boolean; // coach view OR game over
   clickable: boolean;
   onClick?: (card: CardModel) => void;
 };

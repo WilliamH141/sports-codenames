@@ -27,7 +27,7 @@ export default function ClueBanner({ team, word, count, guessesRemaining }: Prop
         <span className="text-team-gold text-lg leading-none">★</span>
         <div className="flex flex-col min-w-0">
           <div className="font-[family-name:var(--font-display)] text-[10px] font-bold tracking-[0.35em] uppercase text-muted">
-            <span className={TEAM_TEXT[team]}>{team}</span> spymaster says
+            <span className={TEAM_TEXT[team]}>{team}</span> coach says
           </div>
           <div className="flex items-baseline gap-2.5 min-w-0">
             <div className="font-[family-name:var(--font-display)] font-black uppercase text-2xl sm:text-3xl text-ink truncate tracking-tight leading-none">

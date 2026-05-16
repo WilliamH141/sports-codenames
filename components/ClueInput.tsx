@@ -44,7 +44,7 @@ export default function ClueInput({ roomId, playerId, team }: Props) {
       <div className="flex items-center gap-2">
         <span className="text-team-gold text-base leading-none">★</span>
         <span className="font-[family-name:var(--font-display)] text-[10px] font-bold tracking-[0.35em] uppercase text-muted">
-          <span className={TEAM_TEXT[team]}>{team}</span> spymaster — your clue
+          <span className={TEAM_TEXT[team]}>{team}</span> coach — your clue
         </span>
       </div>
 

@@ -1,5 +1,6 @@
 -- Sports Codenames schema.
 -- Run this once against a fresh Supabase project (SQL editor or psql).
+-- For existing projects mid-migration, see migration_coach_player.sql.
 
 create extension if not exists "pgcrypto";
 
@@ -17,16 +18,16 @@ create table if not exists public.rooms (
   created_at           timestamptz not null default now()
 );
 
-create table if not exists public.players (
+create table if not exists public.members (
   id            uuid not null,
   room_id       uuid not null references public.rooms(id) on delete cascade,
   display_name  text not null,
   team          text check (team in ('red','blue')),
-  role          text check (role in ('spymaster','guesser')),
+  role          text check (role in ('coach','player')),
   joined_at     timestamptz not null default now(),
   primary key (room_id, id)
 );
-create index if not exists players_room_idx on public.players(room_id);
+create index if not exists members_room_idx on public.members(room_id);
 
 create table if not exists public.cards (
   id            uuid primary key default gen_random_uuid(),
@@ -63,24 +64,24 @@ create index if not exists guesses_room_idx on public.guesses(room_id);
 -- RLS: anyone with the code can read; nobody can write via anon key.
 -- Mutations go through Next.js Server Actions using the service role.
 alter table public.rooms    enable row level security;
-alter table public.players  enable row level security;
+alter table public.members  enable row level security;
 alter table public.cards    enable row level security;
 alter table public.clues    enable row level security;
 alter table public.guesses  enable row level security;
 
 drop policy if exists "anon read rooms"    on public.rooms;
-drop policy if exists "anon read players"  on public.players;
+drop policy if exists "anon read members"  on public.members;
 drop policy if exists "anon read cards"    on public.cards;
 drop policy if exists "anon read clues"    on public.clues;
 drop policy if exists "anon read guesses"  on public.guesses;
 
 create policy "anon read rooms"    on public.rooms    for select using (true);
-create policy "anon read players"  on public.players  for select using (true);
+create policy "anon read members"  on public.members  for select using (true);
 create policy "anon read cards"    on public.cards    for select using (true);
 create policy "anon read clues"    on public.clues    for select using (true);
 create policy "anon read guesses"  on public.guesses  for select using (true);
 
--- Realtime publication.
+-- Realtime publication. Idempotent — skip an ADD if the table is already in.
 do $$
 begin
   if not exists (select 1 from pg_publication where pubname = 'supabase_realtime') then
@@ -88,7 +89,17 @@ begin
   end if;
 end$$;
 
-alter publication supabase_realtime add table public.rooms;
-alter publication supabase_realtime add table public.players;
-alter publication supabase_realtime add table public.cards;
-alter publication supabase_realtime add table public.clues;
+do $$
+declare t text;
+begin
+  foreach t in array array['rooms','members','cards','clues'] loop
+    if not exists (
+      select 1 from pg_publication_tables
+      where pubname = 'supabase_realtime'
+        and schemaname = 'public'
+        and tablename = t
+    ) then
+      execute format('alter publication supabase_realtime add table public.%I', t);
+    end if;
+  end loop;
+end$$;

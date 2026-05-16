@@ -2,13 +2,13 @@
 
 import { useTransition } from "react";
 import { setTeamRole } from "@/app/actions";
-import type { Player, Role, Team } from "@/lib/types";
+import type { Member, Role, Team } from "@/lib/types";
 
 type Props = {
   roomId: string;
   playerId: string;
-  players: Player[];
-  onlinePlayerIds?: Set<string>;
+  members: Member[];
+  onlineMemberIds?: Set<string>;
   presenceLoaded?: boolean;
 };
 
@@ -28,33 +28,33 @@ const TEAM_HOVER: Record<Team, string> = {
 export default function SeatPicker({
   roomId,
   playerId,
-  players,
-  onlinePlayerIds,
+  members,
+  onlineMemberIds,
   presenceLoaded = false,
 }: Props) {
   const [pending, startTransition] = useTransition();
 
   const isOnline = (id: string) =>
-    !presenceLoaded || onlinePlayerIds == null || onlinePlayerIds.has(id);
+    !presenceLoaded || onlineMemberIds == null || onlineMemberIds.has(id);
 
-  // Current spymaster of team t, if any, ignoring this player.
-  const currentSpymaster = (t: Team) =>
-    players.find(
-      (p) => p.team === t && p.role === "spymaster" && p.id !== playerId
+  // Current coach of team t, if any, ignoring this player.
+  const currentCoach = (t: Team) =>
+    members.find(
+      (m) => m.team === t && m.role === "coach" && m.id !== playerId
     );
 
-  // The seat is "taken" only if a different player holds it AND they're
+  // The coach seat is "taken" only if a different member holds it AND they're
   // online. Offline holders are treated as having vacated the seat — we'll
   // pass `force: true` to the server so it kicks them on claim.
-  const spyOnlineHeld = (t: Team) => {
-    const holder = currentSpymaster(t);
+  const coachOnlineHeld = (t: Team) => {
+    const holder = currentCoach(t);
     return holder != null && isOnline(holder.id);
   };
 
   const take = (team: Team, role: Role) => {
     let force = false;
-    if (role === "spymaster") {
-      const holder = currentSpymaster(team);
+    if (role === "coach") {
+      const holder = currentCoach(team);
       if (holder && !isOnline(holder.id)) force = true;
     }
     startTransition(async () => {
@@ -77,7 +77,7 @@ export default function SeatPicker({
 
       <div className="grid grid-cols-2 gap-2 sm:gap-3">
         {(["red", "blue"] as Team[]).map((team) => {
-          const spyLocked = spyOnlineHeld(team);
+          const coachLocked = coachOnlineHeld(team);
           return (
             <div
               key={team}
@@ -91,28 +91,28 @@ export default function SeatPicker({
                   >
                     {team}
                   </span>
-                  {spyLocked && (
+                  {coachLocked && (
                     <span className="font-[family-name:var(--font-display)] text-[8px] font-bold tracking-[0.3em] uppercase text-dim">
-                      spy filled
+                      coach filled
                     </span>
                   )}
                 </div>
                 <div className="flex gap-1.5">
                   <button
                     type="button"
-                    disabled={pending || spyLocked}
-                    onClick={() => take(team, "spymaster")}
+                    disabled={pending || coachLocked}
+                    onClick={() => take(team, "coach")}
                     className="flex-1 py-1.5 px-2 rounded font-[family-name:var(--font-display)] text-[10px] font-black tracking-[0.2em] uppercase border border-border bg-bg-deep/40 text-ink hover:bg-bg-deep hover:border-team-gold disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-bg-deep/40 disabled:hover:border-border transition-colors cursor-pointer"
                   >
-                    ★ Spy
+                    ★ Coach
                   </button>
                   <button
                     type="button"
                     disabled={pending}
-                    onClick={() => take(team, "guesser")}
+                    onClick={() => take(team, "player")}
                     className={`flex-1 py-1.5 px-2 rounded font-[family-name:var(--font-display)] text-[10px] font-black tracking-[0.2em] uppercase border border-border bg-bg-deep/40 text-ink hover:bg-bg-deep ${TEAM_HOVER[team]} disabled:opacity-30 transition-colors cursor-pointer`}
                   >
-                    ● Guess
+                    ● Player
                   </button>
                 </div>
               </div>

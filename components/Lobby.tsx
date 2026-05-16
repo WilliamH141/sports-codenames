@@ -2,14 +2,14 @@
 
 import { useState, useTransition } from "react";
 import { setTeamRole, startGame } from "@/app/actions";
-import type { Player, Role, Team } from "@/lib/types";
+import type { Member, Role, Team } from "@/lib/types";
 
 type Props = {
   roomId: string;
   code: string;
   playerId: string;
-  players: Player[];
-  onlinePlayerIds?: Set<string>;
+  members: Member[];
+  onlineMemberIds?: Set<string>;
   presenceLoaded?: boolean;
 };
 
@@ -18,7 +18,7 @@ type TeamStyle = {
   text: string;
   fill: string;
   glow: string;
-  guesserHover: string;
+  playerHover: string;
 };
 
 const TEAM_STYLES: Record<Team, TeamStyle> = {
@@ -27,14 +27,14 @@ const TEAM_STYLES: Record<Team, TeamStyle> = {
     text: "text-team-red",
     fill: "bg-team-red/10",
     glow: "shadow-[0_0_48px_-14px_rgba(255,70,85,0.5)]",
-    guesserHover: "hover:border-team-red",
+    playerHover: "hover:border-team-red",
   },
   blue: {
     bar: "bg-team-blue",
     text: "text-team-blue",
     fill: "bg-team-blue/10",
     glow: "shadow-[0_0_48px_-14px_rgba(77,142,255,0.5)]",
-    guesserHover: "hover:border-team-blue",
+    playerHover: "hover:border-team-blue",
   },
 };
 
@@ -42,15 +42,15 @@ export default function Lobby({
   roomId,
   code,
   playerId,
-  players,
-  onlinePlayerIds,
+  members,
+  onlineMemberIds,
   presenceLoaded = false,
 }: Props) {
   const [pending, startTransition] = useTransition();
   const [copied, setCopied] = useState(false);
-  const me = players.find((p) => p.id === playerId);
+  const me = members.find((m) => m.id === playerId);
   const isOffline = (id: string) =>
-    presenceLoaded && onlinePlayerIds != null && !onlinePlayerIds.has(id);
+    presenceLoaded && onlineMemberIds != null && !onlineMemberIds.has(id);
 
   const takeSeat = (team: Team | null, role: Role | null) =>
     startTransition(async () => {
@@ -81,10 +81,10 @@ export default function Lobby({
   };
 
   const teamsReady = (["red", "blue"] as Team[]).every((t) => {
-    const list = players.filter((p) => p.team === t);
+    const list = members.filter((m) => m.team === t);
     return (
-      list.some((p) => p.role === "spymaster") &&
-      list.some((p) => p.role === "guesser")
+      list.some((m) => m.role === "coach") &&
+      list.some((m) => m.role === "player")
     );
   });
 
@@ -125,11 +125,11 @@ export default function Lobby({
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
         {(["red", "blue"] as Team[]).map((team) => {
           const t = TEAM_STYLES[team];
-          const teamPlayers = players.filter((p) => p.team === team);
-          const spymasters = teamPlayers.filter((p) => p.role === "spymaster");
-          const guessers = teamPlayers.filter((p) => p.role === "guesser");
-          const spymasterTaken =
-            spymasters.length > 0 && !spymasters.some((p) => p.id === playerId);
+          const teamMembers = members.filter((m) => m.team === team);
+          const coaches = teamMembers.filter((m) => m.role === "coach");
+          const players = teamMembers.filter((m) => m.role === "player");
+          const coachTaken =
+            coaches.length > 0 && !coaches.some((m) => m.id === playerId);
           const meIsThisTeam = me?.team === team;
 
           return (
@@ -149,29 +149,29 @@ export default function Lobby({
                     {team} team
                   </h2>
                   <span className="font-[family-name:var(--font-display)] text-[10px] font-bold tracking-[0.3em] uppercase text-dim">
-                    {teamPlayers.length} player{teamPlayers.length === 1 ? "" : "s"}
+                    {teamMembers.length} on roster
                   </span>
                 </div>
 
-                {/* Spymaster slot */}
+                {/* Coach slot */}
                 <div>
                   <div className="flex items-center gap-2 mb-1.5">
                     <span className="text-team-gold text-sm leading-none">★</span>
                     <span className="font-[family-name:var(--font-display)] text-[10px] font-black tracking-[0.35em] uppercase text-muted">
-                      Spymaster
+                      Coach
                     </span>
                   </div>
-                  {spymasters.length === 0 ? (
+                  {coaches.length === 0 ? (
                     <p className={`text-sm ${t.text} opacity-40 italic`}>— awaiting —</p>
                   ) : (
                     <ul className="space-y-0.5">
-                      {spymasters.map((p) => (
+                      {coaches.map((m) => (
                         <li
-                          key={p.id}
-                          className={`text-base ${t.text} font-semibold truncate ${isOffline(p.id) ? "opacity-40" : ""}`}
+                          key={m.id}
+                          className={`text-base ${t.text} font-semibold truncate ${isOffline(m.id) ? "opacity-40" : ""}`}
                         >
-                          {p.display_name}
-                          {p.id === playerId && (
+                          {m.display_name}
+                          {m.id === playerId && (
                             <span className="text-muted text-xs ml-1 font-normal">
                               (you)
                             </span>
@@ -182,25 +182,25 @@ export default function Lobby({
                   )}
                 </div>
 
-                {/* Guessers */}
+                {/* Players */}
                 <div>
                   <div className="flex items-center gap-2 mb-1.5">
                     <span className={`text-sm leading-none ${t.text}`}>●</span>
                     <span className="font-[family-name:var(--font-display)] text-[10px] font-black tracking-[0.35em] uppercase text-muted">
-                      Guessers
+                      Players
                     </span>
                   </div>
-                  {guessers.length === 0 ? (
+                  {players.length === 0 ? (
                     <p className="text-sm text-muted opacity-40 italic">— none yet —</p>
                   ) : (
                     <ul className="space-y-0.5">
-                      {guessers.map((p) => (
+                      {players.map((m) => (
                         <li
-                          key={p.id}
-                          className={`text-sm text-ink truncate ${isOffline(p.id) ? "opacity-40" : ""}`}
+                          key={m.id}
+                          className={`text-sm text-ink truncate ${isOffline(m.id) ? "opacity-40" : ""}`}
                         >
-                          {p.display_name}
-                          {p.id === playerId && (
+                          {m.display_name}
+                          {m.id === playerId && (
                             <span className="text-muted text-xs ml-1">(you)</span>
                           )}
                         </li>
@@ -213,19 +213,19 @@ export default function Lobby({
                 <div className="flex flex-wrap gap-2 pt-1">
                   <button
                     type="button"
-                    disabled={pending || spymasterTaken}
-                    onClick={() => takeSeat(team, "spymaster")}
+                    disabled={pending || coachTaken}
+                    onClick={() => takeSeat(team, "coach")}
                     className="flex-1 min-w-[7rem] py-2 px-3 font-[family-name:var(--font-display)] text-xs font-black tracking-[0.22em] uppercase border border-border bg-bg-deep/40 text-ink transition-colors cursor-pointer hover:bg-bg-deep hover:border-team-gold disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-bg-deep/40 disabled:hover:border-border"
                   >
-                    ★ Spymaster
+                    ★ Coach
                   </button>
                   <button
                     type="button"
                     disabled={pending}
-                    onClick={() => takeSeat(team, "guesser")}
-                    className={`flex-1 min-w-[7rem] py-2 px-3 font-[family-name:var(--font-display)] text-xs font-black tracking-[0.22em] uppercase border border-border bg-bg-deep/40 text-ink transition-colors cursor-pointer hover:bg-bg-deep ${t.guesserHover} disabled:opacity-30 disabled:cursor-not-allowed`}
+                    onClick={() => takeSeat(team, "player")}
+                    className={`flex-1 min-w-[7rem] py-2 px-3 font-[family-name:var(--font-display)] text-xs font-black tracking-[0.22em] uppercase border border-border bg-bg-deep/40 text-ink transition-colors cursor-pointer hover:bg-bg-deep ${t.playerHover} disabled:opacity-30 disabled:cursor-not-allowed`}
                   >
-                    ● Guesser
+                    ● Player
                   </button>
                   {meIsThisTeam && (
                     <button
@@ -258,7 +258,7 @@ export default function Lobby({
         </button>
         {!teamsReady && (
           <p className="text-center text-[11px] text-dim font-[family-name:var(--font-display)] tracking-[0.3em] uppercase font-bold">
-            Each team needs ★ spymaster + ● guesser
+            Each team needs ★ coach + ● player
           </p>
         )}
       </div>
@@ -267,12 +267,12 @@ export default function Lobby({
       <div className="flex items-center gap-3 text-[11px] text-dim font-[family-name:var(--font-display)] tracking-[0.3em] uppercase font-bold">
         <span className="flex-1 h-px bg-border" />
         <span className="truncate">
-          {players.length} in room
-          {players.length > 0 && " · "}
-          {players.map((p, i) => (
-            <span key={p.id} className={isOffline(p.id) ? "opacity-40" : ""}>
-              {p.display_name}
-              {i < players.length - 1 && " · "}
+          {members.length} in room
+          {members.length > 0 && " · "}
+          {members.map((m, i) => (
+            <span key={m.id} className={isOffline(m.id) ? "opacity-40" : ""}>
+              {m.display_name}
+              {i < members.length - 1 && " · "}
             </span>
           ))}
         </span>

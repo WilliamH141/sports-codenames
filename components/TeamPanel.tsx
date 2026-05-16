@@ -1,13 +1,15 @@
 "use client";
 
-import type { Player, Team } from "@/lib/types";
+import type { Member, Team } from "@/lib/types";
 
 type Props = {
   team: Team;
-  players: Player[];
+  members: Member[];
   current: boolean;
   remaining: number;
-  onlinePlayerIds?: Set<string>;
+  /** "clue" = coach is picking; "guess" = players are tapping cards. */
+  phase?: "clue" | "guess";
+  onlineMemberIds?: Set<string>;
   presenceLoaded?: boolean;
 };
 
@@ -36,17 +38,20 @@ const STYLE: Record<Team, {
 
 export default function TeamPanel({
   team,
-  players,
+  members,
   current,
   remaining,
-  onlinePlayerIds,
+  phase,
+  onlineMemberIds,
   presenceLoaded = false,
 }: Props) {
   const s = STYLE[team];
-  const spymaster = players.find((p) => p.role === "spymaster");
-  const guessers = players.filter((p) => p.role === "guesser");
+  const coach = members.find((m) => m.role === "coach");
+  const players = members.filter((m) => m.role === "player");
   const isOffline = (id: string) =>
-    presenceLoaded && onlinePlayerIds != null && !onlinePlayerIds.has(id);
+    presenceLoaded && onlineMemberIds != null && !onlineMemberIds.has(id);
+  const phaseTag =
+    phase === "clue" ? "✎ On clue" : phase === "guess" ? "▶ Guessing" : "Active";
 
   return (
     <div
@@ -64,9 +69,8 @@ export default function TeamPanel({
               {team}
             </h3>
             {current && (
-              <span className="inline-flex items-center gap-1 font-[family-name:var(--font-display)] text-[9px] font-black tracking-[0.3em] uppercase text-team-gold">
-                <span className="ping-dot inline-block w-1.5 h-1.5 rounded-full bg-team-gold" />
-                Active
+              <span className="font-[family-name:var(--font-display)] text-[9px] font-black tracking-[0.3em] uppercase text-team-gold">
+                {phaseTag}
               </span>
             )}
           </div>
@@ -74,26 +78,24 @@ export default function TeamPanel({
           <div className="text-xs text-muted truncate">
             <span className="text-team-gold mr-1">★</span>
             <span
-              className={`${s.text} font-semibold ${spymaster && isOffline(spymaster.id) ? "opacity-40" : ""}`}
+              className={`${s.text} font-semibold ${coach && isOffline(coach.id) ? "opacity-40" : ""}`}
             >
-              {spymaster?.display_name ?? "—"}
+              {coach?.display_name ?? "—"}
             </span>
           </div>
-          <div className="text-xs text-muted truncate">
+          <div className="text-xs text-muted leading-snug">
             <span className={`mr-1 ${s.text}`}>●</span>
-            {guessers.length > 0 ? (
-              <>
-                {guessers.map((g, i) => (
-                  <span key={g.id}>
-                    <span className={`text-ink ${isOffline(g.id) ? "opacity-40" : ""}`}>
-                      {g.display_name}
-                    </span>
-                    {i < guessers.length - 1 && (
-                      <span className="text-ink"> · </span>
-                    )}
+            {players.length > 0 ? (
+              players.map((m, i) => (
+                <span key={m.id}>
+                  <span className={`text-ink ${isOffline(m.id) ? "opacity-40" : ""}`}>
+                    {m.display_name}
                   </span>
-                ))}
-              </>
+                  {i < players.length - 1 && (
+                    <span className="text-ink">, </span>
+                  )}
+                </span>
+              ))
             ) : (
               <span className="text-ink">—</span>
             )}

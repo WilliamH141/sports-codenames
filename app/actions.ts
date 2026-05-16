@@ -74,7 +74,7 @@ export async function joinRoom(input: {
     .single();
   if (roomErr || !room) throw new Error("Room not found");
 
-  const { error } = await db.from("players").upsert(
+  const { error } = await db.from("members").upsert(
     {
       id: input.playerId,
       room_id: room.id,
@@ -108,33 +108,33 @@ export async function setTeamRole(input: {
   if (room.status === "finished")
     throw new Error("Game is over");
 
-  if (input.team && input.role === "spymaster") {
+  if (input.team && input.role === "coach") {
     if (input.force) {
-      // Vacate any other spymaster on this team before claiming.
+      // Vacate any other coach on this team before claiming.
       await db
-        .from("players")
+        .from("members")
         .update({ role: null })
         .eq("room_id", input.roomId)
         .eq("team", input.team)
-        .eq("role", "spymaster")
+        .eq("role", "coach")
         .neq("id", input.playerId);
     } else {
       const { data: existing } = await db
-        .from("players")
+        .from("members")
         .select("id")
         .eq("room_id", input.roomId)
         .eq("team", input.team)
-        .eq("role", "spymaster")
+        .eq("role", "coach")
         .neq("id", input.playerId)
         .limit(1);
       if (existing && existing.length > 0) {
-        throw new Error(`${input.team} already has a spymaster`);
+        throw new Error(`${input.team} already has a coach`);
       }
     }
   }
 
   const { error } = await db
-    .from("players")
+    .from("members")
     .update({ team: input.team, role: input.role })
     .eq("room_id", input.roomId)
     .eq("id", input.playerId);
@@ -152,18 +152,18 @@ export async function startGame(roomId: string): Promise<void> {
   if (roomErr || !room) throw new Error("Room not found");
   if (room.status !== "lobby") return;
 
-  const { data: players, error: pErr } = await db
-    .from("players")
+  const { data: members, error: mErr } = await db
+    .from("members")
     .select("team, role")
     .eq("room_id", roomId);
-  if (pErr) throw new Error(pErr.message);
+  if (mErr) throw new Error(mErr.message);
 
   for (const t of ["red", "blue"] as Team[]) {
-    const teamPlayers = players?.filter((p) => p.team === t) ?? [];
-    const hasSpymaster = teamPlayers.some((p) => p.role === "spymaster");
-    const hasGuesser = teamPlayers.some((p) => p.role === "guesser");
-    if (!hasSpymaster || !hasGuesser) {
-      throw new Error(`${t} needs at least one spymaster and one guesser`);
+    const teamMembers = members?.filter((m) => m.team === t) ?? [];
+    const hasCoach = teamMembers.some((m) => m.role === "coach");
+    const hasPlayer = teamMembers.some((m) => m.role === "player");
+    if (!hasCoach || !hasPlayer) {
+      throw new Error(`${t} needs at least one coach and one player`);
     }
   }
 
@@ -205,22 +205,22 @@ export async function submitClue(input: {
   if (room.current_clue_word)
     throw new Error("A clue is already active this turn");
 
-  const { data: player, error: pErr } = await db
-    .from("players")
+  const { data: member, error: mErr } = await db
+    .from("members")
     .select("team, role")
     .eq("room_id", input.roomId)
     .eq("id", input.playerId)
     .single();
-  if (pErr || !player) throw new Error("Player not in this room");
-  if (player.role !== "spymaster" || player.team !== room.current_team) {
-    throw new Error("Only the current team's spymaster can submit a clue");
+  if (mErr || !member) throw new Error("You are not in this room");
+  if (member.role !== "coach" || member.team !== room.current_team) {
+    throw new Error("Only the current team's coach can submit a clue");
   }
 
   const { data: clue, error: clueErr } = await db
     .from("clues")
     .insert({
       room_id: input.roomId,
-      team: player.team,
+      team: member.team,
       word,
       count: input.count,
     })
@@ -260,17 +260,17 @@ export async function revealCard(input: {
   if (room.status !== "playing") return;
   if (!room.current_clue_word) return;
 
-  const { data: player, error: pErr } = await db
-    .from("players")
+  const { data: member, error: mErr } = await db
+    .from("members")
     .select("team, role")
     .eq("room_id", input.roomId)
     .eq("id", input.playerId)
     .single();
-  if (pErr || !player) throw new Error("Player not in this room");
-  if (player.role !== "guesser" || player.team !== room.current_team) {
-    // Most commonly hit when the turn flips mid-click. Real authorization errors
-    // (player isn't a guesser at all) are rare and indistinguishable here, so
-    // we treat both as silent no-ops to keep the table calm.
+  if (mErr || !member) throw new Error("You are not in this room");
+  if (member.role !== "player" || member.team !== room.current_team) {
+    // Most commonly hit when the turn flips mid-click. Real authorization
+    // errors (caller isn't a player at all) are rare and indistinguishable
+    // here, so we treat both as silent no-ops to keep the table calm.
     return;
   }
 
@@ -291,7 +291,7 @@ export async function revealCard(input: {
 
   const cardsAfter: Card[] = existingCards.map((c) =>
     c.id === targetCard.id
-      ? { ...(c as Card), revealed: true, revealed_by_team: player.team }
+      ? { ...(c as Card), revealed: true, revealed_by_team: member.team }
       : (c as Card)
   );
 
@@ -305,7 +305,7 @@ export async function revealCard(input: {
 
   const { error: revealErr } = await db
     .from("cards")
-    .update({ revealed: true, revealed_by_team: player.team })
+    .update({ revealed: true, revealed_by_team: member.team })
     .eq("id", targetCard.id);
   if (revealErr) throw new Error(revealErr.message);
 
@@ -362,15 +362,15 @@ export async function endTurn(input: {
   if (room.status !== "playing") throw new Error("Game is not in progress");
   if (!room.current_clue_word) throw new Error("No active turn to end");
 
-  const { data: player, error: pErr } = await db
-    .from("players")
+  const { data: member, error: mErr } = await db
+    .from("members")
     .select("team, role")
     .eq("room_id", input.roomId)
     .eq("id", input.playerId)
     .single();
-  if (pErr || !player) throw new Error("Player not in this room");
-  if (player.role !== "guesser" || player.team !== room.current_team) {
-    throw new Error("Only current-team guessers can end the turn");
+  if (mErr || !member) throw new Error("You are not in this room");
+  if (member.role !== "player" || member.team !== room.current_team) {
+    throw new Error("Only the current team's players can end the turn");
   }
 
   const { error } = await db
