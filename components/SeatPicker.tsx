@@ -8,6 +8,8 @@ type Props = {
   roomId: string;
   playerId: string;
   players: Player[];
+  onlinePlayerIds?: Set<string>;
+  presenceLoaded?: boolean;
 };
 
 const TEAM_TEXT: Record<Team, string> = {
@@ -23,22 +25,46 @@ const TEAM_HOVER: Record<Team, string> = {
   blue: "hover:border-team-blue",
 };
 
-export default function SeatPicker({ roomId, playerId, players }: Props) {
+export default function SeatPicker({
+  roomId,
+  playerId,
+  players,
+  onlinePlayerIds,
+  presenceLoaded = false,
+}: Props) {
   const [pending, startTransition] = useTransition();
 
-  const take = (team: Team, role: Role) =>
+  const isOnline = (id: string) =>
+    !presenceLoaded || onlinePlayerIds == null || onlinePlayerIds.has(id);
+
+  // Current spymaster of team t, if any, ignoring this player.
+  const currentSpymaster = (t: Team) =>
+    players.find(
+      (p) => p.team === t && p.role === "spymaster" && p.id !== playerId
+    );
+
+  // The seat is "taken" only if a different player holds it AND they're
+  // online. Offline holders are treated as having vacated the seat — we'll
+  // pass `force: true` to the server so it kicks them on claim.
+  const spyOnlineHeld = (t: Team) => {
+    const holder = currentSpymaster(t);
+    return holder != null && isOnline(holder.id);
+  };
+
+  const take = (team: Team, role: Role) => {
+    let force = false;
+    if (role === "spymaster") {
+      const holder = currentSpymaster(team);
+      if (holder && !isOnline(holder.id)) force = true;
+    }
     startTransition(async () => {
       try {
-        await setTeamRole({ roomId, playerId, team, role });
+        await setTeamRole({ roomId, playerId, team, role, force });
       } catch (err) {
         alert(err instanceof Error ? err.message : "Failed");
       }
     });
-
-  const spyTaken = (t: Team) =>
-    players.some(
-      (p) => p.team === t && p.role === "spymaster" && p.id !== playerId
-    );
+  };
 
   return (
     <div className="card-surface rounded-md p-3 sm:p-4 flex flex-col gap-3">
@@ -51,7 +77,7 @@ export default function SeatPicker({ roomId, playerId, players }: Props) {
 
       <div className="grid grid-cols-2 gap-2 sm:gap-3">
         {(["red", "blue"] as Team[]).map((team) => {
-          const spyLocked = spyTaken(team);
+          const spyLocked = spyOnlineHeld(team);
           return (
             <div
               key={team}

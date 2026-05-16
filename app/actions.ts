@@ -92,6 +92,10 @@ export async function setTeamRole(input: {
   playerId: string;
   team: Team | null;
   role: Role | null;
+  /** When true, kick whoever currently holds the requested role to free the
+      seat. Client passes this when the existing holder is known-offline via
+      Supabase Presence — the server can't observe presence itself. */
+  force?: boolean;
 }): Promise<void> {
   const db = getServerSupabase();
 
@@ -101,22 +105,31 @@ export async function setTeamRole(input: {
     .eq("id", input.roomId)
     .single();
   if (roomErr || !room) throw new Error("Room not found");
-  // Allow seat changes in lobby AND mid-game (so fresh joiners or refreshed
-  // players can claim empty seats); only block after the game has ended.
   if (room.status === "finished")
     throw new Error("Game is over");
 
   if (input.team && input.role === "spymaster") {
-    const { data: existing } = await db
-      .from("players")
-      .select("id")
-      .eq("room_id", input.roomId)
-      .eq("team", input.team)
-      .eq("role", "spymaster")
-      .neq("id", input.playerId)
-      .limit(1);
-    if (existing && existing.length > 0) {
-      throw new Error(`${input.team} already has a spymaster`);
+    if (input.force) {
+      // Vacate any other spymaster on this team before claiming.
+      await db
+        .from("players")
+        .update({ role: null })
+        .eq("room_id", input.roomId)
+        .eq("team", input.team)
+        .eq("role", "spymaster")
+        .neq("id", input.playerId);
+    } else {
+      const { data: existing } = await db
+        .from("players")
+        .select("id")
+        .eq("room_id", input.roomId)
+        .eq("team", input.team)
+        .eq("role", "spymaster")
+        .neq("id", input.playerId)
+        .limit(1);
+      if (existing && existing.length > 0) {
+        throw new Error(`${input.team} already has a spymaster`);
+      }
     }
   }
 

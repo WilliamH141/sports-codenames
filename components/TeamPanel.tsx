@@ -7,6 +7,8 @@ type Props = {
   players: Player[];
   current: boolean;
   remaining: number;
+  onlinePlayerIds?: Set<string>;
+  presenceLoaded?: boolean;
 };
 
 const STYLE: Record<Team, {
@@ -32,10 +34,19 @@ const STYLE: Record<Team, {
   },
 };
 
-export default function TeamPanel({ team, players, current, remaining }: Props) {
+export default function TeamPanel({
+  team,
+  players,
+  current,
+  remaining,
+  onlinePlayerIds,
+  presenceLoaded = false,
+}: Props) {
   const s = STYLE[team];
   const spymaster = players.find((p) => p.role === "spymaster");
   const guessers = players.filter((p) => p.role === "guesser");
+  const isOffline = (id: string) =>
+    presenceLoaded && onlinePlayerIds != null && !onlinePlayerIds.has(id);
 
   return (
     <div
@@ -62,15 +73,30 @@ export default function TeamPanel({ team, players, current, remaining }: Props) 
 
           <div className="text-xs text-muted truncate">
             <span className="text-team-gold mr-1">★</span>
-            <span className={`${s.text} font-semibold`}>
+            <span
+              className={`${s.text} font-semibold ${spymaster && isOffline(spymaster.id) ? "opacity-40" : ""}`}
+            >
               {spymaster?.display_name ?? "—"}
             </span>
           </div>
           <div className="text-xs text-muted truncate">
             <span className={`mr-1 ${s.text}`}>●</span>
-            <span className="text-ink">
-              {guessers.length > 0 ? guessers.map((g) => g.display_name).join(" · ") : "—"}
-            </span>
+            {guessers.length > 0 ? (
+              <>
+                {guessers.map((g, i) => (
+                  <span key={g.id}>
+                    <span className={`text-ink ${isOffline(g.id) ? "opacity-40" : ""}`}>
+                      {g.display_name}
+                    </span>
+                    {i < guessers.length - 1 && (
+                      <span className="text-ink"> · </span>
+                    )}
+                  </span>
+                ))}
+              </>
+            ) : (
+              <span className="text-ink">—</span>
+            )}
           </div>
         </div>
 

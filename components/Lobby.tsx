@@ -9,6 +9,8 @@ type Props = {
   code: string;
   playerId: string;
   players: Player[];
+  onlinePlayerIds?: Set<string>;
+  presenceLoaded?: boolean;
 };
 
 type TeamStyle = {
@@ -36,10 +38,19 @@ const TEAM_STYLES: Record<Team, TeamStyle> = {
   },
 };
 
-export default function Lobby({ roomId, code, playerId, players }: Props) {
+export default function Lobby({
+  roomId,
+  code,
+  playerId,
+  players,
+  onlinePlayerIds,
+  presenceLoaded = false,
+}: Props) {
   const [pending, startTransition] = useTransition();
   const [copied, setCopied] = useState(false);
   const me = players.find((p) => p.id === playerId);
+  const isOffline = (id: string) =>
+    presenceLoaded && onlinePlayerIds != null && !onlinePlayerIds.has(id);
 
   const takeSeat = (team: Team | null, role: Role | null) =>
     startTransition(async () => {
@@ -157,7 +168,7 @@ export default function Lobby({ roomId, code, playerId, players }: Props) {
                       {spymasters.map((p) => (
                         <li
                           key={p.id}
-                          className={`text-base ${t.text} font-semibold truncate`}
+                          className={`text-base ${t.text} font-semibold truncate ${isOffline(p.id) ? "opacity-40" : ""}`}
                         >
                           {p.display_name}
                           {p.id === playerId && (
@@ -184,7 +195,10 @@ export default function Lobby({ roomId, code, playerId, players }: Props) {
                   ) : (
                     <ul className="space-y-0.5">
                       {guessers.map((p) => (
-                        <li key={p.id} className="text-sm text-ink truncate">
+                        <li
+                          key={p.id}
+                          className={`text-sm text-ink truncate ${isOffline(p.id) ? "opacity-40" : ""}`}
+                        >
                           {p.display_name}
                           {p.id === playerId && (
                             <span className="text-muted text-xs ml-1">(you)</span>
@@ -255,7 +269,12 @@ export default function Lobby({ roomId, code, playerId, players }: Props) {
         <span className="truncate">
           {players.length} in room
           {players.length > 0 && " · "}
-          {players.map((p) => p.display_name).join(" · ")}
+          {players.map((p, i) => (
+            <span key={p.id} className={isOffline(p.id) ? "opacity-40" : ""}>
+              {p.display_name}
+              {i < players.length - 1 && " · "}
+            </span>
+          ))}
         </span>
         <span className="flex-1 h-px bg-border" />
       </div>

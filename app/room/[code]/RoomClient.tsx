@@ -29,6 +29,8 @@ export default function RoomClient({ initialRoom, initialPlayers, initialCards }
   const [playerId, setPlayerId] = useState<string>("");
   const [needsName, setNeedsName] = useState<boolean>(false);
   const [revealing, setRevealing] = useState(false);
+  const [onlinePlayerIds, setOnlinePlayerIds] = useState<Set<string>>(new Set());
+  const [presenceLoaded, setPresenceLoaded] = useState(false);
   const revealInFlight = useRef(false);
   const joinedRef = useRef(false);
 
@@ -61,11 +63,16 @@ export default function RoomClient({ initialRoom, initialPlayers, initialCards }
     }
   }, [doJoin]);
 
-  // Realtime subscriptions.
+  // Realtime subscriptions + Presence. The Presence layer rides the same
+  // WebSocket and tells us which playerIds currently have a live tab open —
+  // that's how we detect "spymaster bailed without clicking leave."
   useEffect(() => {
+    if (!playerId) return;
     const supabase = getBrowserSupabase();
     const channel = supabase
-      .channel(`room:${room.id}`)
+      .channel(`room:${room.id}`, {
+        config: { presence: { key: playerId } },
+      })
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "rooms", filter: `id=eq.${room.id}` },
@@ -105,12 +112,21 @@ export default function RoomClient({ initialRoom, initialPlayers, initialCards }
           });
         }
       )
-      .subscribe();
+      .on("presence", { event: "sync" }, () => {
+        const state = channel.presenceState();
+        setOnlinePlayerIds(new Set(Object.keys(state)));
+        setPresenceLoaded(true);
+      })
+      .subscribe(async (status) => {
+        if (status === "SUBSCRIBED") {
+          await channel.track({ joined_at: new Date().toISOString() });
+        }
+      });
 
     return () => {
       void supabase.removeChannel(channel);
     };
-  }, [room.id]);
+  }, [room.id, playerId]);
 
   const me = useMemo(() => players.find((p) => p.id === playerId) ?? null, [players, playerId]);
 
@@ -161,7 +177,14 @@ export default function RoomClient({ initialRoom, initialPlayers, initialCards }
   if (room.status === "lobby") {
     return (
       <main className="min-h-dvh px-4 sm:px-6 py-8 sm:py-12">
-        <Lobby roomId={room.id} code={room.code} playerId={playerId} players={players} />
+        <Lobby
+          roomId={room.id}
+          code={room.code}
+          playerId={playerId}
+          players={players}
+          onlinePlayerIds={onlinePlayerIds}
+          presenceLoaded={presenceLoaded}
+        />
       </main>
     );
   }
@@ -212,12 +235,16 @@ export default function RoomClient({ initialRoom, initialPlayers, initialCards }
             players={players.filter((p) => p.team === "red")}
             current={!gameOver && room.current_team === "red"}
             remaining={remaining.red}
+            onlinePlayerIds={onlinePlayerIds}
+            presenceLoaded={presenceLoaded}
           />
           <TeamPanel
             team="blue"
             players={players.filter((p) => p.team === "blue")}
             current={!gameOver && room.current_team === "blue"}
             remaining={remaining.blue}
+            onlinePlayerIds={onlinePlayerIds}
+            presenceLoaded={presenceLoaded}
           />
         </div>
 
@@ -227,6 +254,8 @@ export default function RoomClient({ initialRoom, initialPlayers, initialCards }
             roomId={room.id}
             playerId={playerId}
             players={players}
+            onlinePlayerIds={onlinePlayerIds}
+            presenceLoaded={presenceLoaded}
           />
         )}
 
