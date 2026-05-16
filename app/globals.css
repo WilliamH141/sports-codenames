@@ -226,20 +226,22 @@ body {
 /* Spymaster key tints (unrevealed). */
 .tile-key-red {
   background:
-    linear-gradient(180deg, rgba(255, 70, 85, 0.22) 0%, rgba(255, 70, 85, 0.08) 100%),
+    linear-gradient(180deg, rgba(255, 70, 85, 0.34) 0%, rgba(255, 70, 85, 0.16) 100%),
     var(--color-surface);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.08),
-    inset 0 0 0 1px rgba(255, 70, 85, 0.5);
+    inset 0 0 0 1.5px rgba(255, 70, 85, 0.75);
   border-top: 2px solid var(--color-team-red);
 }
 .tile-key-blue {
+  /* Blue needs more punch than red: the navy base already leans blue, so a
+     softer tint gets eaten by the bg. Crank tint + inner stroke alpha. */
   background:
-    linear-gradient(180deg, rgba(77, 142, 255, 0.22) 0%, rgba(77, 142, 255, 0.08) 100%),
+    linear-gradient(180deg, rgba(77, 142, 255, 0.36) 0%, rgba(77, 142, 255, 0.18) 100%),
     var(--color-surface);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.08),
-    inset 0 0 0 1px rgba(77, 142, 255, 0.5);
+    inset 0 0 0 1.5px rgba(77, 142, 255, 0.8);
   border-top: 2px solid var(--color-team-blue);
 }
 .tile-key-neutral {
@@ -279,14 +281,17 @@ body {
   color: #fff;
 }
 .tile-revealed-neutral {
+  /* Warm desaturated gray, deliberately OUTSIDE the navy palette so it
+     reads as "out of play" instead of a slightly-lighter sibling of the
+     unrevealed slate. */
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.04) 0%, rgba(255, 255, 255, 0) 50%),
-    var(--color-surface-3);
+    linear-gradient(180deg, rgba(255, 255, 255, 0.025) 0%, rgba(255, 255, 255, 0) 50%),
+    #3a3a40;
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.05),
-    inset 0 0 0 1px var(--color-border);
-  color: var(--color-muted);
-  opacity: 0.75;
+    inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.55);
+  opacity: 0.62;
 }
 .tile-revealed-assassin {
   background:
