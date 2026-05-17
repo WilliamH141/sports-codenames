@@ -9,6 +9,8 @@ type Props = {
   remaining: number;
   /** "clue" = coach is picking; "guess" = players are tapping cards. */
   phase?: "clue" | "guess";
+  /** Only meaningful during this team's guess phase. */
+  guessesRemaining?: number | null;
   onlineMemberIds?: Set<string>;
   presenceLoaded?: boolean;
 };
@@ -42,9 +44,12 @@ export default function TeamPanel({
   current,
   remaining,
   phase,
+  guessesRemaining,
   onlineMemberIds,
   presenceLoaded = false,
 }: Props) {
+  const showGuessCount =
+    current && phase === "guess" && guessesRemaining != null;
   const s = STYLE[team];
   const coach = members.find((m) => m.role === "coach");
   const players = members.filter((m) => m.role === "player");
@@ -110,6 +115,11 @@ export default function TeamPanel({
           <div className="font-[family-name:var(--font-display)] font-bold uppercase tracking-[0.3em] text-[9px] text-dim mt-0.5">
             Left
           </div>
+          {showGuessCount && (
+            <div className="mt-1.5 font-[family-name:var(--font-display)] font-bold uppercase tracking-[0.25em] text-[8px] text-team-gold">
+              {guessesRemaining} {guessesRemaining === 1 ? "guess" : "guesses"}
+            </div>
+          )}
         </div>
       </div>
     </div>

@@ -14,7 +14,8 @@ import JoinModal from "@/components/JoinModal";
 import Lobby from "@/components/Lobby";
 import SeatPicker from "@/components/SeatPicker";
 import TeamPanel from "@/components/TeamPanel";
-import TurnTimer from "@/components/TurnTimer";
+import TeamPanelRail from "@/components/TeamPanelRail";
+import TurnIndicator from "@/components/TurnIndicator";
 import WinnerBanner from "@/components/WinnerBanner";
 
 type Props = {
@@ -208,7 +209,7 @@ export default function RoomClient({ initialRoom, initialMembers, initialCards }
 
   return (
     <main className="min-h-dvh px-3 sm:px-6 py-4 sm:py-6">
-      <div className="max-w-3xl w-full mx-auto flex flex-col gap-3 sm:gap-4 stagger">
+      <div className="max-w-[1536px] w-full mx-auto flex flex-col gap-3 sm:gap-4 stagger">
         {/* Top bar */}
         <header className="flex items-center justify-between gap-3 pb-2 border-b border-border/60">
           <div className="flex items-center gap-2">
@@ -233,115 +234,131 @@ export default function RoomClient({ initialRoom, initialMembers, initialCards }
           </div>
         </header>
 
-        {/* Scoreboard */}
-        <div className="grid grid-cols-2 gap-2 sm:gap-3">
-          <TeamPanel
-            team="red"
-            members={members.filter((m) => m.team === "red")}
-            current={!gameOver && room.current_team === "red"}
-            remaining={remaining.red}
-            phase={!gameOver && room.current_team === "red" ? (room.current_clue_word ? "guess" : "clue") : undefined}
-            onlineMemberIds={onlineMemberIds}
-            presenceLoaded={presenceLoaded}
-          />
-          <TeamPanel
-            team="blue"
-            members={members.filter((m) => m.team === "blue")}
-            current={!gameOver && room.current_team === "blue"}
-            remaining={remaining.blue}
-            phase={!gameOver && room.current_team === "blue" ? (room.current_clue_word ? "guess" : "clue") : undefined}
-            onlineMemberIds={onlineMemberIds}
-            presenceLoaded={presenceLoaded}
-          />
-        </div>
-
-        {/* Shot clock */}
-        {!gameOver && room.current_team && room.turn_deadline && (
-          <TurnTimer
-            deadline={room.turn_deadline}
+        {/* Status above body — turn indicator (with embedded shot clock) OR
+            winner banner. Sits between navbar and body grid so rails+board
+            align at the top of the body. */}
+        {gameOver && room.winner ? (
+          <WinnerBanner winner={room.winner} roomId={room.id} />
+        ) : !gameOver && room.current_team ? (
+          <TurnIndicator
             team={room.current_team}
+            phase={room.current_clue_word ? "guess" : "clue"}
+            deadline={room.turn_deadline}
             onExpire={() => {
               void expireTurn(room.id);
             }}
           />
-        )}
-
-        {/* Seat picker — for fresh joiners / refreshed members with no seat yet. */}
-        {!gameOver && (!me?.team || !me?.role) && playerId && (
-          <SeatPicker
-            roomId={room.id}
-            playerId={playerId}
-            members={members}
-            onlineMemberIds={onlineMemberIds}
-            presenceLoaded={presenceLoaded}
-          />
-        )}
-
-        {/* Status strip */}
-        {gameOver && room.winner ? (
-          <WinnerBanner winner={room.winner} roomId={room.id} />
-        ) : canSubmitClue && room.current_team ? (
-          <ClueInput
-            roomId={room.id}
-            playerId={playerId}
-            team={room.current_team}
-          />
-        ) : !gameOver &&
-          room.current_clue_word &&
-          room.current_team &&
-          room.current_clue_count != null ? (
-          <ClueBanner
-            team={room.current_team}
-            word={room.current_clue_word}
-            count={room.current_clue_count}
-            guessesRemaining={room.guesses_remaining}
-          />
-        ) : !gameOver && room.current_team ? (
-          <AwaitingStrip team={room.current_team} />
         ) : null}
 
-        {/* Board */}
-        <Board
-          cards={cards}
-          viewerRole={me?.role ?? null}
-          viewerTeam={me?.team ?? null}
-          currentTeam={room.current_team}
-          gameOver={gameOver}
-          awaitingClue={awaitingClue}
-          locked={revealing}
-          onCardClick={onCardClick}
-        />
-
-        {/* End turn */}
-        {showEndTurn && room.current_team && (
-          <div className="flex justify-center pt-1">
-            <EndTurnButton
-              roomId={room.id}
-              playerId={playerId}
-              team={room.current_team}
+        {/* Body grid — mobile: 1 col, desktop: 14rem | board | 14rem */}
+        <div className="grid grid-cols-1 lg:grid-cols-[14rem_minmax(0,1fr)_14rem] gap-3 lg:gap-5">
+          {/* Mobile/tablet scoreboard — hidden on lg+ */}
+          <div className="grid grid-cols-2 gap-2 sm:gap-3 lg:hidden">
+            <TeamPanel
+              team="red"
+              members={members.filter((m) => m.team === "red")}
+              current={!gameOver && room.current_team === "red"}
+              remaining={remaining.red}
+              phase={!gameOver && room.current_team === "red" ? (room.current_clue_word ? "guess" : "clue") : undefined}
+              guessesRemaining={room.current_team === "red" ? room.guesses_remaining : null}
+              onlineMemberIds={onlineMemberIds}
+              presenceLoaded={presenceLoaded}
             />
+            <TeamPanel
+              team="blue"
+              members={members.filter((m) => m.team === "blue")}
+              current={!gameOver && room.current_team === "blue"}
+              remaining={remaining.blue}
+              phase={!gameOver && room.current_team === "blue" ? (room.current_clue_word ? "guess" : "clue") : undefined}
+              guessesRemaining={room.current_team === "blue" ? room.guesses_remaining : null}
+              onlineMemberIds={onlineMemberIds}
+              presenceLoaded={presenceLoaded}
+            />
+          </div>
+
+          {/* Desktop left rail — hidden below lg */}
+          <div className="hidden lg:block">
+            <TeamPanelRail
+              team="red"
+              members={members.filter((m) => m.team === "red")}
+              current={!gameOver && room.current_team === "red"}
+              remaining={remaining.red}
+              phase={!gameOver && room.current_team === "red" ? (room.current_clue_word ? "guess" : "clue") : undefined}
+              guessesRemaining={room.current_team === "red" ? room.guesses_remaining : null}
+              onlineMemberIds={onlineMemberIds}
+              presenceLoaded={presenceLoaded}
+            />
+          </div>
+
+          {/* Center column — just the board so it aligns with the rails. */}
+          <div className="min-w-0">
+            <Board
+              cards={cards}
+              viewerRole={me?.role ?? null}
+              viewerTeam={me?.team ?? null}
+              currentTeam={room.current_team}
+              gameOver={gameOver}
+              awaitingClue={awaitingClue}
+              locked={revealing}
+              onCardClick={onCardClick}
+            />
+          </div>
+
+          {/* Desktop right rail — hidden below lg */}
+          <div className="hidden lg:block">
+            <TeamPanelRail
+              team="blue"
+              members={members.filter((m) => m.team === "blue")}
+              current={!gameOver && room.current_team === "blue"}
+              remaining={remaining.blue}
+              phase={!gameOver && room.current_team === "blue" ? (room.current_clue_word ? "guess" : "clue") : undefined}
+              guessesRemaining={room.current_team === "blue" ? room.guesses_remaining : null}
+              onlineMemberIds={onlineMemberIds}
+              presenceLoaded={presenceLoaded}
+            />
+          </div>
+        </div>
+
+        {/* Action row below body — clue display, clue input, end turn,
+            seat picker. Lives under the board (Codenames-online style). */}
+        {!gameOver && (
+          <div className="flex flex-col gap-3 sm:gap-4 max-w-2xl w-full mx-auto">
+            {(!me?.team || !me?.role) && playerId && (
+              <SeatPicker
+                roomId={room.id}
+                playerId={playerId}
+                members={members}
+                onlineMemberIds={onlineMemberIds}
+                presenceLoaded={presenceLoaded}
+              />
+            )}
+            {room.current_clue_word && room.current_team && room.current_clue_count != null && (
+              <div className="flex gap-2 items-stretch">
+                <ClueBanner
+                  team={room.current_team}
+                  word={room.current_clue_word}
+                  count={room.current_clue_count}
+                  className="flex-1"
+                />
+                {showEndTurn && (
+                  <EndTurnButton
+                    roomId={room.id}
+                    playerId={playerId}
+                    team={room.current_team}
+                  />
+                )}
+              </div>
+            )}
+            {canSubmitClue && room.current_team && (
+              <ClueInput
+                roomId={room.id}
+                playerId={playerId}
+                team={room.current_team}
+              />
+            )}
           </div>
         )}
       </div>
     </main>
-  );
-}
-
-function AwaitingStrip({ team }: { team: Team }) {
-  return (
-    <div
-      className={`${team === "red" ? "bar-red" : "bar-blue"} rounded-md px-4 py-2.5 flex items-center gap-2.5`}
-    >
-      <span
-        className={`ping-dot inline-block w-2 h-2 rounded-full ${team === "red" ? "bg-team-red" : "bg-team-blue"}`}
-      />
-      <span className="font-[family-name:var(--font-display)] text-[11px] font-bold tracking-[0.35em] uppercase text-muted">
-        Awaiting{" "}
-        <span className={team === "red" ? "text-team-red" : "text-team-blue"}>
-          {team}
-        </span>{" "}
-        coach
-      </span>
-    </div>
   );
 }
