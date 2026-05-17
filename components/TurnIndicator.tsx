@@ -3,12 +3,12 @@
 import { useEffect, useRef, useState } from "react";
 import type { Team } from "@/lib/types";
 
-const TURN_DURATION_MS = 90_000;
-
 type Props = {
   team: Team;
   phase: "clue" | "guess";
   deadline: string | null;
+  /** Configured shot clock in seconds. Null = no timer (countdown hidden). */
+  durationSeconds: number | null;
   onExpire: () => void;
 };
 
@@ -23,7 +23,7 @@ const STYLE: Record<Team, { band: string; text: string; dot: string }> = {
  * align at the top of the body. Replaces the previous AwaitingStrip + TurnTimer
  * combo (those were in the center column and pushed the board down).
  */
-export default function TurnIndicator({ team, phase, deadline, onExpire }: Props) {
+export default function TurnIndicator({ team, phase, deadline, durationSeconds, onExpire }: Props) {
   const s = STYLE[team];
   const [now, setNow] = useState(() => Date.now());
   const firedFor = useRef<string | null>(null);
@@ -48,9 +48,10 @@ export default function TurnIndicator({ team, phase, deadline, onExpire }: Props
     ? Math.max(0, new Date(deadline).getTime() - now)
     : null;
   const seconds = remainingMs != null ? Math.ceil(remainingMs / 1000) : null;
+  const totalMs = durationSeconds != null ? durationSeconds * 1000 : 0;
   const pct =
-    remainingMs != null
-      ? Math.max(0, Math.min(100, (remainingMs / TURN_DURATION_MS) * 100))
+    remainingMs != null && totalMs > 0
+      ? Math.max(0, Math.min(100, (remainingMs / totalMs) * 100))
       : 100;
   const critical = seconds != null && seconds <= 10;
 

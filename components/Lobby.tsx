@@ -1,7 +1,12 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { randomizeTeams, setTeamRole, startGame } from "@/app/actions";
+import {
+  randomizeTeams,
+  setTeamRole,
+  setTurnDuration,
+  startGame,
+} from "@/app/actions";
 import type { Member, Role, Team } from "@/lib/types";
 
 type Props = {
@@ -9,9 +14,18 @@ type Props = {
   code: string;
   playerId: string;
   members: Member[];
+  turnDurationSeconds: number | null;
   onlineMemberIds?: Set<string>;
   presenceLoaded?: boolean;
 };
+
+type ShotClockOption = { label: string; value: 60 | 90 | 120 | null };
+const SHOT_CLOCK_OPTIONS: ShotClockOption[] = [
+  { label: "Off", value: null },
+  { label: "60", value: 60 },
+  { label: "90", value: 90 },
+  { label: "120", value: 120 },
+];
 
 type TeamStyle = {
   bar: string;
@@ -43,6 +57,7 @@ export default function Lobby({
   code,
   playerId,
   members,
+  turnDurationSeconds,
   onlineMemberIds,
   presenceLoaded = false,
 }: Props) {
@@ -91,6 +106,17 @@ export default function Lobby({
         alert(err instanceof Error ? err.message : "Failed");
       }
     });
+
+  const onSetShotClock = (seconds: 60 | 90 | 120 | null) => {
+    if (seconds === turnDurationSeconds) return;
+    startTransition(async () => {
+      try {
+        await setTurnDuration({ roomId, seconds });
+      } catch (err) {
+        alert(err instanceof Error ? err.message : "Failed");
+      }
+    });
+  };
 
   const copyCode = async () => {
     try {
@@ -280,6 +306,36 @@ export default function Lobby({
         <span className="text-sm opacity-70">↻</span>
         <span>Randomize teams</span>
       </button>
+
+      {/* Shot clock picker */}
+      <div className="flex flex-col gap-2">
+        <div className="flex items-center gap-2.5">
+          <span className="text-team-gold text-sm leading-none">◴</span>
+          <span className="font-[family-name:var(--font-display)] text-[11px] font-black tracking-[0.35em] uppercase text-muted">
+            Shot clock
+          </span>
+        </div>
+        <div className="grid grid-cols-4 gap-2">
+          {SHOT_CLOCK_OPTIONS.map((opt) => {
+            const selected = opt.value === turnDurationSeconds;
+            return (
+              <button
+                key={opt.label}
+                type="button"
+                disabled={pending}
+                onClick={() => onSetShotClock(opt.value)}
+                className={`py-2.5 px-3 font-[family-name:var(--font-display)] text-xs font-black tracking-[0.22em] uppercase border transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed ${
+                  selected
+                    ? "border-team-gold text-team-gold bg-team-gold/10"
+                    : "border-border bg-bg-deep/40 text-ink hover:bg-bg-deep hover:border-border-hi"
+                }`}
+              >
+                {opt.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
 
       {/* Tip-off CTA */}
       <div className="flex flex-col gap-2">

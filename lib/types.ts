@@ -17,6 +17,8 @@ export type Room = {
   guesses_remaining: number | null;
   winner: Team | null;
   turn_deadline: string | null;
+  /** Seconds per turn for the shot clock. NULL = no timer; turns don't expire. */
+  turn_duration_seconds: number | null;
   created_at: string;
 };
 

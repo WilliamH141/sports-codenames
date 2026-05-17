@@ -188,6 +188,7 @@ export default function RoomClient({ initialRoom, initialMembers, initialCards }
           code={room.code}
           playerId={playerId}
           members={members}
+          turnDurationSeconds={room.turn_duration_seconds}
           onlineMemberIds={onlineMemberIds}
           presenceLoaded={presenceLoaded}
         />
@@ -244,6 +245,7 @@ export default function RoomClient({ initialRoom, initialMembers, initialCards }
             team={room.current_team}
             phase={room.current_clue_word ? "guess" : "clue"}
             deadline={room.turn_deadline}
+            durationSeconds={room.turn_duration_seconds}
             onExpire={() => {
               void expireTurn(room.id);
             }}

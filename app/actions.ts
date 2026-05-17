@@ -8,9 +8,10 @@ import { evaluateGuess, otherTeam } from "@/lib/game/rules";
 import type { Card, Role, Sport, Team } from "@/lib/types";
 
 const CODE_RETRY_LIMIT = 8;
-const TURN_DURATION_MS = 90_000;
-const nextDeadline = (): string =>
-  new Date(Date.now() + TURN_DURATION_MS).toISOString();
+const ALLOWED_TURN_DURATIONS = [60, 90, 120] as const;
+type TurnDurationSeconds = (typeof ALLOWED_TURN_DURATIONS)[number];
+const nextDeadline = (seconds: number | null): string | null =>
+  seconds == null ? null : new Date(Date.now() + seconds * 1000).toISOString();
 
 export async function createRoom(sport: Sport = "nba"): Promise<never> {
   const db = getServerSupabase();
@@ -190,12 +191,42 @@ export async function randomizeTeams(roomId: string): Promise<void> {
   await Promise.all(updates);
 }
 
+/** Lobby-only: change the shot clock for upcoming turns. `seconds` must be one
+    of the allowed presets, or null to disable the timer entirely. */
+export async function setTurnDuration(input: {
+  roomId: string;
+  seconds: TurnDurationSeconds | null;
+}): Promise<void> {
+  if (
+    input.seconds !== null &&
+    !ALLOWED_TURN_DURATIONS.includes(input.seconds)
+  ) {
+    throw new Error("Invalid turn duration");
+  }
+  const db = getServerSupabase();
+
+  const { data: room, error: roomErr } = await db
+    .from("rooms")
+    .select("id, status")
+    .eq("id", input.roomId)
+    .single();
+  if (roomErr || !room) throw new Error("Room not found");
+  if (room.status !== "lobby")
+    throw new Error("Shot clock can only be changed in the lobby");
+
+  const { error } = await db
+    .from("rooms")
+    .update({ turn_duration_seconds: input.seconds })
+    .eq("id", input.roomId);
+  if (error) throw new Error(error.message);
+}
+
 export async function startGame(roomId: string): Promise<void> {
   const db = getServerSupabase();
 
   const { data: room, error: roomErr } = await db
     .from("rooms")
-    .select("id, status, starting_team")
+    .select("id, status, starting_team, turn_duration_seconds")
     .eq("id", roomId)
     .single();
   if (roomErr || !room) throw new Error("Room not found");
@@ -224,7 +255,7 @@ export async function startGame(roomId: string): Promise<void> {
       current_clue_word: null,
       current_clue_count: null,
       guesses_remaining: null,
-      turn_deadline: nextDeadline(),
+      turn_deadline: nextDeadline(room.turn_duration_seconds),
     })
     .eq("id", roomId);
   if (error) throw new Error(error.message);
@@ -247,7 +278,7 @@ export async function submitClue(input: {
 
   const { data: room, error: roomErr } = await db
     .from("rooms")
-    .select("id, status, current_team, current_clue_word")
+    .select("id, status, current_team, current_clue_word, turn_duration_seconds")
     .eq("id", input.roomId)
     .single();
   if (roomErr || !room) throw new Error("Room not found");
@@ -284,7 +315,7 @@ export async function submitClue(input: {
       current_clue_word: word,
       current_clue_count: input.count,
       guesses_remaining: input.count + 1,
-      turn_deadline: nextDeadline(),
+      turn_deadline: nextDeadline(room.turn_duration_seconds),
     })
     .eq("id", input.roomId);
   if (roomUpdErr) throw new Error(roomUpdErr.message);
@@ -300,7 +331,7 @@ export async function revealCard(input: {
   const { data: room, error: roomErr } = await db
     .from("rooms")
     .select(
-      "id, status, current_team, starting_team, current_clue_word, guesses_remaining"
+      "id, status, current_team, starting_team, current_clue_word, guesses_remaining, turn_duration_seconds"
     )
     .eq("id", input.roomId)
     .single();
@@ -389,7 +420,7 @@ export async function revealCard(input: {
     roomPatch.current_clue_word = null;
     roomPatch.current_clue_count = null;
     roomPatch.guesses_remaining = null;
-    roomPatch.turn_deadline = nextDeadline();
+    roomPatch.turn_deadline = nextDeadline(room.turn_duration_seconds);
   } else if (outcome.decrementsGuess) {
     roomPatch.guesses_remaining = (room.guesses_remaining ?? 0) - 1;
   }
@@ -408,7 +439,7 @@ export async function endTurn(input: {
 
   const { data: room, error: roomErr } = await db
     .from("rooms")
-    .select("id, status, current_team, current_clue_word")
+    .select("id, status, current_team, current_clue_word, turn_duration_seconds")
     .eq("id", input.roomId)
     .single();
   if (roomErr || !room) throw new Error("Room not found");
@@ -433,7 +464,7 @@ export async function endTurn(input: {
       current_clue_word: null,
       current_clue_count: null,
       guesses_remaining: null,
-      turn_deadline: nextDeadline(),
+      turn_deadline: nextDeadline(room.turn_duration_seconds),
     })
     .eq("id", input.roomId);
   if (error) throw new Error(error.message);
@@ -496,7 +527,7 @@ export async function expireTurn(roomId: string): Promise<void> {
   const db = getServerSupabase();
   const { data: room } = await db
     .from("rooms")
-    .select("id, status, current_team, turn_deadline")
+    .select("id, status, current_team, turn_deadline, turn_duration_seconds")
     .eq("id", roomId)
     .single();
   if (!room) return;
@@ -513,7 +544,7 @@ export async function expireTurn(roomId: string): Promise<void> {
       current_clue_word: null,
       current_clue_count: null,
       guesses_remaining: null,
-      turn_deadline: nextDeadline(),
+      turn_deadline: nextDeadline(room.turn_duration_seconds),
     })
     .eq("id", roomId)
     .eq("turn_deadline", room.turn_deadline);
