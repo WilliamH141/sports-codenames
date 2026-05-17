@@ -16,7 +16,7 @@ async function createNbaRoom() {
 export default function Home() {
   return (
     <main className="relative min-h-dvh flex flex-col">
-      {/* Top scoreboard chrome */}
+      {/* Top bar */}
       <header className="flex items-center justify-between px-5 sm:px-8 py-4 border-b border-border/70 backdrop-blur-[2px]">
         <div className="flex items-center gap-3">
           <span className="chip-gold inline-flex items-center px-2.5 py-1 font-[family-name:var(--font-display)] text-[11px] font-black tracking-[0.22em] uppercase">
@@ -26,55 +26,43 @@ export default function Home() {
             Sports Codenames
           </span>
         </div>
-        <div className="flex items-center gap-2 text-muted">
-          <span className="ping-dot inline-block w-2 h-2 rounded-full bg-team-red" />
-          <span className="font-[family-name:var(--font-display)] text-xs font-bold tracking-[0.28em] uppercase">
-            LIVE · v0.1
-          </span>
-        </div>
+        <span className="font-[family-name:var(--font-display)] text-xs font-bold tracking-[0.28em] uppercase text-muted">
+          v0.1
+        </span>
       </header>
 
       {/* Hero */}
       <div className="flex-1 flex items-center justify-center px-6 py-10 sm:py-16">
-        <div className="w-full max-w-md flex flex-col stagger">
-          {/* Eyebrow */}
-          <div className="flex items-center gap-2.5 self-center">
-            <span className="w-6 h-0.5 bg-team-gold rounded-full" />
-            <span className="font-[family-name:var(--font-display)] text-xs font-black tracking-[0.4em] uppercase text-team-gold">
-              NBA Edition
-            </span>
-            <span className="w-6 h-0.5 bg-team-gold rounded-full" />
-          </div>
-
+        <div className="w-full max-w-lg mx-auto flex flex-col items-center stagger">
           {/* Big headline — chunky condensed broadcast type */}
-          <h1 className="mt-4 font-[family-name:var(--font-display)] font-black uppercase text-center text-ink leading-[0.85] text-[clamp(4.5rem,18vw,7.5rem)] tracking-[-0.01em]">
+          <h1 className="font-[family-name:var(--font-display)] font-black uppercase text-center text-ink leading-[0.85] text-[clamp(3.75rem,14vw,6rem)] tracking-[-0.01em]">
             Codenames
           </h1>
 
           {/* Team rule (red | gold | blue) */}
-          <div className="vs-rule mt-5" />
+          <div className="vs-rule mt-5 w-full" />
 
-          {/* Flavor copy */}
-          <p className="mt-7 text-center text-muted text-sm leading-relaxed mx-auto max-w-xs">
-            Two teams. One coach each.{" "}
-            <span className="text-ink font-semibold">Find your roster.</span>{" "}
-            <span className="text-team-red font-semibold">Dodge the assassin.</span>
+          {/* Tagline + attribution */}
+          <p className="mt-6 text-center text-muted text-sm">
+            Players, teams, plays — all NBA.
+          </p>
+          <p className="mt-1 text-center text-dim text-xs italic">
+            Inspired by Codenames.
           </p>
 
           {/* Primary CTA */}
-          <form action={createNbaRoom} className="mt-9">
+          <form action={createNbaRoom} className="mt-8 w-full">
             <button
               type="submit"
-              className="cta-red w-full py-4 px-5 text-white font-[family-name:var(--font-display)] font-black tracking-[0.2em] text-base uppercase cursor-pointer flex items-center justify-between gap-3"
+              className="cta-red w-full py-4 px-5 text-white font-[family-name:var(--font-display)] font-black tracking-[0.2em] text-base uppercase cursor-pointer flex items-center justify-center gap-3"
             >
-              <span className="font-mono text-xs opacity-70">▸▸</span>
               <span className="text-lg">New Game</span>
               <span className="text-xl opacity-90">→</span>
             </button>
           </form>
 
           {/* Divider */}
-          <div className="mt-7 flex items-center gap-3">
+          <div className="mt-7 flex items-center gap-3 w-full">
             <span className="flex-1 h-px bg-border" />
             <span className="font-[family-name:var(--font-display)] text-[11px] font-bold tracking-[0.4em] uppercase text-dim">
               or join with code
@@ -83,7 +71,7 @@ export default function Home() {
           </div>
 
           {/* Code entry */}
-          <form action={joinByCode} className="mt-4 flex gap-2">
+          <form action={joinByCode} className="mt-4 w-full flex gap-2">
             <input
               name="code"
               type="text"
@@ -105,13 +93,6 @@ export default function Home() {
           </form>
         </div>
       </div>
-
-      {/* Footer ticker */}
-      <footer className="px-5 sm:px-8 py-3 flex items-center justify-between text-[10px] sm:text-xs text-dim font-[family-name:var(--font-display)] uppercase tracking-[0.28em] font-bold border-t border-border/40">
-        <span>25 cards · 4-char code · realtime</span>
-        <span className="hidden sm:inline">classic 9·8·7·1 split</span>
-        <span>made for friends on call</span>
-      </footer>
     </main>
   );
 }
