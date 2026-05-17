@@ -103,8 +103,12 @@ export default function RoomClient({ initialRoom, initialMembers, initialCards }
         "postgres_changes",
         { event: "*", schema: "public", table: "cards", filter: `room_id=eq.${room.id}` },
         (payload) => {
-          const next = payload.new as Card;
           setCards((prev) => {
+            if (payload.eventType === "DELETE") {
+              const old = payload.old as { id?: string };
+              return prev.filter((c) => c.id !== old.id);
+            }
+            const next = payload.new as Card;
             const idx = prev.findIndex((c) => c.id === next.id);
             if (idx === -1) return [...prev, next];
             const copy = prev.slice();
@@ -275,7 +279,7 @@ export default function RoomClient({ initialRoom, initialMembers, initialCards }
 
         {/* Status strip */}
         {gameOver && room.winner ? (
-          <WinnerBanner winner={room.winner} />
+          <WinnerBanner winner={room.winner} roomId={room.id} />
         ) : canSubmitClue && room.current_team ? (
           <ClueInput
             roomId={room.id}
