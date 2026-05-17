@@ -144,6 +144,52 @@ export async function setTeamRole(input: {
   if (error) throw new Error(`Failed to set role: ${error.message}`);
 }
 
+/** Shuffle every member in the room and split them evenly between red/blue.
+    First member of each half becomes the coach; the rest are players. Only
+    callable in lobby — once a game is in flight, mid-game seat changes go
+    through setTeamRole instead. */
+export async function randomizeTeams(roomId: string): Promise<void> {
+  const db = getServerSupabase();
+
+  const { data: room, error: roomErr } = await db
+    .from("rooms")
+    .select("id, status")
+    .eq("id", roomId)
+    .single();
+  if (roomErr || !room) throw new Error("Room not found");
+  if (room.status !== "lobby")
+    throw new Error("Can only randomize in the lobby");
+
+  const { data: members, error: mErr } = await db
+    .from("members")
+    .select("id")
+    .eq("room_id", roomId);
+  if (mErr) throw new Error(mErr.message);
+  if (!members || members.length === 0) return;
+
+  // Fisher-Yates shuffle.
+  const shuffled = members.slice();
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+
+  // Split as evenly as possible; first of each half is coach, rest are players.
+  const half = Math.ceil(shuffled.length / 2);
+  const updates = shuffled.map((m, i) => {
+    const team: Team = i < half ? "red" : "blue";
+    const indexInTeam = i < half ? i : i - half;
+    const role: Role = indexInTeam === 0 ? "coach" : "player";
+    return db
+      .from("members")
+      .update({ team, role })
+      .eq("room_id", roomId)
+      .eq("id", m.id)
+      .then((r) => r);
+  });
+  await Promise.all(updates);
+}
+
 export async function startGame(roomId: string): Promise<void> {
   const db = getServerSupabase();
 

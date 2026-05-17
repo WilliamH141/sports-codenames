@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { setTeamRole, startGame } from "@/app/actions";
+import { randomizeTeams, setTeamRole, startGame } from "@/app/actions";
 import type { Member, Role, Team } from "@/lib/types";
 
 type Props = {
@@ -78,6 +78,15 @@ export default function Lobby({
     startTransition(async () => {
       try {
         await startGame(roomId);
+      } catch (err) {
+        alert(err instanceof Error ? err.message : "Failed");
+      }
+    });
+
+  const onRandomize = () =>
+    startTransition(async () => {
+      try {
+        await randomizeTeams(roomId);
       } catch (err) {
         alert(err instanceof Error ? err.message : "Failed");
       }
@@ -260,6 +269,17 @@ export default function Lobby({
           );
         })}
       </div>
+
+      {/* Randomize teams — secondary action above tip-off */}
+      <button
+        type="button"
+        disabled={pending || members.length === 0}
+        onClick={onRandomize}
+        className="card-surface w-full py-2.5 px-4 font-[family-name:var(--font-display)] text-xs font-black tracking-[0.25em] uppercase text-ink hover:text-team-gold transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+      >
+        <span className="text-sm opacity-70">↻</span>
+        <span>Randomize teams</span>
+      </button>
 
       {/* Tip-off CTA */}
       <div className="flex flex-col gap-2">
