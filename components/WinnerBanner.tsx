@@ -1,8 +1,7 @@
 "use client";
 
-import Link from "next/link";
 import { useTransition } from "react";
-import { backToLobby, restartGame } from "@/app/actions";
+import { backToLobby } from "@/app/actions";
 import type { Team } from "@/lib/types";
 
 type Props = {
@@ -20,16 +19,7 @@ export default function WinnerBanner({ winner, roomId, cause }: Props) {
   const s = STYLE[winner];
   const [pending, startTransition] = useTransition();
 
-  const onRematch = () =>
-    startTransition(async () => {
-      try {
-        await restartGame(roomId);
-      } catch (err) {
-        alert(err instanceof Error ? err.message : "Failed");
-      }
-    });
-
-  const onLobby = () =>
+  const onPlayAgain = () =>
     startTransition(async () => {
       try {
         await backToLobby(roomId);
@@ -59,35 +49,16 @@ export default function WinnerBanner({ winner, roomId, cause }: Props) {
           )}
         </div>
 
-        {/* Primary — Rematch */}
         <button
           type="button"
           disabled={pending}
-          onClick={onRematch}
+          onClick={onPlayAgain}
           className="cta-red w-full py-3.5 px-5 text-white font-[family-name:var(--font-display)] font-black tracking-[0.2em] text-base uppercase cursor-pointer flex items-center justify-between gap-3 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0"
         >
           <span className="font-mono text-sm opacity-70">↻</span>
-          <span className="text-lg">Rematch</span>
+          <span className="text-lg">Play again</span>
           <span className="text-xl opacity-90">→</span>
         </button>
-
-        {/* Secondary — Back to lobby / Leave */}
-        <div className="grid grid-cols-2 gap-2">
-          <button
-            type="button"
-            disabled={pending}
-            onClick={onLobby}
-            className="card-surface py-2.5 px-3 font-[family-name:var(--font-display)] text-[11px] font-black tracking-[0.2em] uppercase text-ink hover:text-team-gold transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            ← Back to lobby
-          </button>
-          <Link
-            href="/"
-            className="card-surface py-2.5 px-3 font-[family-name:var(--font-display)] text-[11px] font-black tracking-[0.2em] uppercase text-ink hover:text-team-gold transition-colors text-center flex items-center justify-center"
-          >
-            Leave room
-          </Link>
-        </div>
       </div>
     </div>
   );

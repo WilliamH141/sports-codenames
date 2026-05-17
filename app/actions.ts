@@ -393,53 +393,9 @@ export async function endTurn(input: {
   if (error) throw new Error(error.message);
 }
 
-/** Direct rematch — same room, same teams/roles, fresh board. */
-export async function restartGame(roomId: string): Promise<void> {
-  const db = getServerSupabase();
-
-  const { data: room, error: roomErr } = await db
-    .from("rooms")
-    .select("id, status, sport")
-    .eq("id", roomId)
-    .single();
-  if (roomErr || !room) throw new Error("Room not found");
-  if (room.status !== "finished")
-    throw new Error("Can only restart a finished game");
-
-  await db.from("guesses").delete().eq("room_id", roomId);
-  await db.from("clues").delete().eq("room_id", roomId);
-  await db.from("cards").delete().eq("room_id", roomId);
-
-  const startingTeam: Team = Math.random() < 0.5 ? "red" : "blue";
-  const seeds = dealBoard(room.sport as Sport, startingTeam);
-  const { error: cardsError } = await db.from("cards").insert(
-    seeds.map((s) => ({
-      room_id: roomId,
-      position: s.position,
-      player_name: s.player_name,
-      card_type: s.card_type,
-    }))
-  );
-  if (cardsError) throw new Error(`Failed to seed board: ${cardsError.message}`);
-
-  const { error } = await db
-    .from("rooms")
-    .update({
-      status: "playing",
-      starting_team: startingTeam,
-      current_team: startingTeam,
-      current_clue_word: null,
-      current_clue_count: null,
-      guesses_remaining: null,
-      winner: null,
-      turn_deadline: nextDeadline(),
-    })
-    .eq("id", roomId);
-  if (error) throw new Error(error.message);
-}
-
-/** Reset a finished game back to the lobby — fresh board waiting for tip-off,
-    members keep their team/role so they can re-shuffle before starting. */
+/** End-of-game "Play again": reset to lobby with a fresh board waiting for
+    tip-off. Members keep their team/role assignments so the same crew can
+    just tap tip-off, or shuffle seats in the lobby first if they want. */
 export async function backToLobby(roomId: string): Promise<void> {
   const db = getServerSupabase();
 

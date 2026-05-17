@@ -226,7 +226,7 @@ export default function RoomClient({ initialRoom, initialMembers, initialCards }
             </span>
             <Link
               href="/"
-              className="font-[family-name:var(--font-display)] text-[10px] font-black tracking-[0.25em] uppercase text-dim hover:text-team-gold transition-colors"
+              className={`font-[family-name:var(--font-display)] text-[10px] font-black tracking-[0.25em] uppercase transition-colors ${gameOver ? "text-team-red hover:opacity-80" : "text-dim hover:text-team-gold"}`}
             >
               Leave →
             </Link>
