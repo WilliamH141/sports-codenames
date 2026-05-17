@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, type ReactNode } from "react";
 import {
   randomizeTeams,
+  resetTeams,
   setTeamRole,
   setTurnDuration,
   startGame,
@@ -19,38 +20,34 @@ type Props = {
   presenceLoaded?: boolean;
 };
 
-type ShotClockOption = { label: string; value: 60 | 90 | 120 | null };
-const SHOT_CLOCK_OPTIONS: ShotClockOption[] = [
-  { label: "Off", value: null },
-  { label: "60", value: 60 },
-  { label: "90", value: 90 },
-  { label: "120", value: 120 },
-];
-
 type TeamStyle = {
   bar: string;
   text: string;
-  fill: string;
   glow: string;
-  playerHover: string;
+  hoverRow: string;
 };
 
 const TEAM_STYLES: Record<Team, TeamStyle> = {
   red: {
     bar: "bg-team-red",
     text: "text-team-red",
-    fill: "bg-team-red/10",
     glow: "shadow-[0_0_48px_-14px_rgba(255,70,85,0.5)]",
-    playerHover: "hover:border-team-red",
+    hoverRow: "hover:bg-team-red/[0.04]",
   },
   blue: {
     bar: "bg-team-blue",
     text: "text-team-blue",
-    fill: "bg-team-blue/10",
     glow: "shadow-[0_0_48px_-14px_rgba(77,142,255,0.5)]",
-    playerHover: "hover:border-team-blue",
+    hoverRow: "hover:bg-team-blue/[0.04]",
   },
 };
+
+const SHOT_CLOCK_OPTIONS: { label: string; value: 60 | 90 | 120 | null }[] = [
+  { label: "Off", value: null },
+  { label: "60", value: 60 },
+  { label: "90", value: 90 },
+  { label: "120", value: 120 },
+];
 
 export default function Lobby({
   roomId,
@@ -63,16 +60,13 @@ export default function Lobby({
 }: Props) {
   const [pending, startTransition] = useTransition();
   const [copied, setCopied] = useState(false);
-  const me = members.find((m) => m.id === playerId);
+  const me = members.find((m) => m.id === playerId) ?? null;
   const isOffline = (id: string) =>
     presenceLoaded && onlineMemberIds != null && !onlineMemberIds.has(id);
-
   const isOnline = (id: string) =>
     !presenceLoaded || onlineMemberIds == null || onlineMemberIds.has(id);
 
   const takeSeat = (team: Team | null, role: Role | null) => {
-    // If claiming the coach seat and the current holder is offline, send
-    // force=true so the server kicks them — mirrors SeatPicker behaviour.
     let force = false;
     if (team && role === "coach") {
       const holder = members.find(
@@ -107,6 +101,15 @@ export default function Lobby({
       }
     });
 
+  const onReset = () =>
+    startTransition(async () => {
+      try {
+        await resetTeams(roomId);
+      } catch (err) {
+        alert(err instanceof Error ? err.message : "Failed");
+      }
+    });
+
   const onSetShotClock = (seconds: 60 | 90 | 120 | null) => {
     if (seconds === turnDurationSeconds) return;
     startTransition(async () => {
@@ -136,205 +139,69 @@ export default function Lobby({
     );
   });
 
-  return (
-    <div className="w-full max-w-3xl mx-auto flex flex-col gap-8 stagger">
-      {/* Eyebrow */}
-      <div className="flex items-center gap-2.5 self-center">
-        <span className="w-6 h-0.5 bg-team-gold rounded-full" />
-        <span className="font-[family-name:var(--font-display)] text-xs font-black tracking-[0.4em] uppercase text-team-gold">
-          Pre-game lobby
-        </span>
-        <span className="w-6 h-0.5 bg-team-gold rounded-full" />
-      </div>
+  const unassigned = members.filter((m) => !m.team || !m.role);
 
-      {/* Room code share */}
-      <div className="flex flex-col items-center gap-2.5">
-        <span className="font-[family-name:var(--font-display)] text-[11px] font-bold tracking-[0.4em] uppercase text-dim">
-          ▸ Share this code
+  return (
+    <div className="w-full max-w-6xl mx-auto flex flex-col gap-5 sm:gap-7 stagger">
+      {/* Room code — its own row, no card. The accent rule below ties it to
+          the page while keeping it visually distinct from the panels below. */}
+      <div className="flex flex-col items-center gap-2">
+        <span className="font-[family-name:var(--font-display)] text-[10px] font-black tracking-[0.4em] uppercase text-dim">
+          Share room code
         </span>
-        <div className="flex items-stretch gap-2">
-          <div className="card-surface flex items-center px-6 sm:px-8 py-3">
-            <span className="font-[family-name:var(--font-display)] font-black text-4xl sm:text-5xl tracking-[0.5em] text-ink leading-none pr-[0.5em]">
-              {code}
-            </span>
-          </div>
+        <div className="flex items-center gap-3">
+          <span className="font-[family-name:var(--font-display)] font-black text-4xl sm:text-5xl tracking-[0.5em] text-ink leading-none pr-[0.5em]">
+            {code}
+          </span>
           <button
             type="button"
             onClick={copyCode}
-            className="card-surface min-w-[5.25rem] px-4 font-[family-name:var(--font-display)] text-xs font-black tracking-[0.22em] uppercase text-muted hover:text-team-gold transition-colors cursor-pointer"
+            className="font-[family-name:var(--font-display)] text-[11px] font-black tracking-[0.22em] uppercase text-muted hover:text-team-gold transition-colors cursor-pointer px-2 py-1"
             aria-label="Copy code"
           >
-            {copied ? "Copied ✓" : "Copy"}
+            {copied ? "✓ Copied" : "Copy"}
           </button>
         </div>
+        <div className="vs-rule w-32 sm:w-44 mt-1" />
       </div>
 
-      {/* Team panels */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-        {(["red", "blue"] as Team[]).map((team) => {
-          const t = TEAM_STYLES[team];
-          const teamMembers = members.filter((m) => m.team === team);
-          const coaches = teamMembers.filter((m) => m.role === "coach");
-          const players = teamMembers.filter((m) => m.role === "player");
-          // Coach seat is only "taken" if the holder is a DIFFERENT online
-          // player. An offline holder is treated as having vacated; clicking
-          // claim will force-kick them via setTeamRole.
-          const coachTaken = coaches.some(
-            (m) => m.id !== playerId && isOnline(m.id)
-          );
-          const meIsThisTeam = me?.team === team;
-
-          return (
-            <div
-              key={team}
-              className={`relative card-surface overflow-hidden transition-shadow ${meIsThisTeam ? t.glow : ""}`}
-            >
-              {/* Team color band */}
-              <div className={`h-1 ${t.bar}`} />
-
-              <div className="p-4 sm:p-5 flex flex-col gap-4">
-                {/* Title row */}
-                <div className="flex items-baseline justify-between gap-2">
-                  <h2
-                    className={`font-[family-name:var(--font-display)] font-black uppercase text-2xl sm:text-3xl tracking-tight ${t.text} leading-none`}
-                  >
-                    {team} team
-                  </h2>
-                  <span className="font-[family-name:var(--font-display)] text-[10px] font-bold tracking-[0.3em] uppercase text-dim">
-                    {teamMembers.length} on roster
-                  </span>
-                </div>
-
-                {/* Coach slot */}
-                <div>
-                  <div className="flex items-center gap-2 mb-1.5">
-                    <span className="text-team-gold text-sm leading-none">★</span>
-                    <span className="font-[family-name:var(--font-display)] text-[10px] font-black tracking-[0.35em] uppercase text-muted">
-                      Coach
-                    </span>
-                  </div>
-                  {coaches.length === 0 ? (
-                    <p className={`text-sm ${t.text} opacity-40 italic`}>— awaiting —</p>
-                  ) : (
-                    <ul className="space-y-0.5">
-                      {coaches.map((m) => (
-                        <li
-                          key={m.id}
-                          className={`text-base ${t.text} font-semibold truncate ${isOffline(m.id) ? "opacity-40" : ""}`}
-                        >
-                          {m.display_name}
-                          {m.id === playerId && (
-                            <span className="text-muted text-xs ml-1 font-normal">
-                              (you)
-                            </span>
-                          )}
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-
-                {/* Players */}
-                <div>
-                  <div className="flex items-center gap-2 mb-1.5">
-                    <span className={`text-sm leading-none ${t.text}`}>●</span>
-                    <span className="font-[family-name:var(--font-display)] text-[10px] font-black tracking-[0.35em] uppercase text-muted">
-                      Players
-                    </span>
-                  </div>
-                  {players.length === 0 ? (
-                    <p className="text-sm text-muted opacity-40 italic">— none yet —</p>
-                  ) : (
-                    <ul className="space-y-0.5">
-                      {players.map((m) => (
-                        <li
-                          key={m.id}
-                          className={`text-sm text-ink truncate ${isOffline(m.id) ? "opacity-40" : ""}`}
-                        >
-                          {m.display_name}
-                          {m.id === playerId && (
-                            <span className="text-muted text-xs ml-1">(you)</span>
-                          )}
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </div>
-
-                {/* Action row */}
-                <div className="flex flex-wrap gap-2 pt-1">
-                  <button
-                    type="button"
-                    disabled={pending || coachTaken}
-                    onClick={() => takeSeat(team, "coach")}
-                    className="flex-1 min-w-[7rem] py-2 px-3 font-[family-name:var(--font-display)] text-xs font-black tracking-[0.22em] uppercase border border-border bg-bg-deep/40 text-ink transition-colors cursor-pointer hover:bg-bg-deep hover:border-team-gold disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-bg-deep/40 disabled:hover:border-border"
-                  >
-                    ★ Coach
-                  </button>
-                  <button
-                    type="button"
-                    disabled={pending}
-                    onClick={() => takeSeat(team, "player")}
-                    className={`flex-1 min-w-[7rem] py-2 px-3 font-[family-name:var(--font-display)] text-xs font-black tracking-[0.22em] uppercase border border-border bg-bg-deep/40 text-ink transition-colors cursor-pointer hover:bg-bg-deep ${t.playerHover} disabled:opacity-30 disabled:cursor-not-allowed`}
-                  >
-                    ● Player
-                  </button>
-                  {meIsThisTeam && (
-                    <button
-                      type="button"
-                      disabled={pending}
-                      onClick={() => takeSeat(null, null)}
-                      className="py-2 px-3 font-[family-name:var(--font-display)] text-xs font-black tracking-[0.22em] uppercase border border-border bg-transparent text-muted transition-colors cursor-pointer hover:text-ink hover:border-border-hi disabled:opacity-30"
-                    >
-                      Leave
-                    </button>
-                  )}
-                </div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Randomize teams — secondary action above tip-off */}
-      <button
-        type="button"
-        disabled={pending || members.length === 0}
-        onClick={onRandomize}
-        className="card-surface w-full py-2.5 px-4 font-[family-name:var(--font-display)] text-xs font-black tracking-[0.25em] uppercase text-ink hover:text-team-gold transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-      >
-        <span className="text-sm opacity-70">↻</span>
-        <span>Randomize teams</span>
-      </button>
-
-      {/* Shot clock picker */}
-      <div className="flex flex-col gap-2">
-        <div className="flex items-center gap-2.5">
-          <span className="text-team-gold text-sm leading-none">◴</span>
-          <span className="font-[family-name:var(--font-display)] text-[11px] font-black tracking-[0.35em] uppercase text-muted">
-            Shot clock
-          </span>
-        </div>
-        <div className="grid grid-cols-4 gap-2">
-          {SHOT_CLOCK_OPTIONS.map((opt) => {
-            const selected = opt.value === turnDurationSeconds;
-            return (
-              <button
-                key={opt.label}
-                type="button"
-                disabled={pending}
-                onClick={() => onSetShotClock(opt.value)}
-                className={`py-2.5 px-3 font-[family-name:var(--font-display)] text-xs font-black tracking-[0.22em] uppercase border transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed ${
-                  selected
-                    ? "border-team-gold text-team-gold bg-team-gold/10"
-                    : "border-border bg-bg-deep/40 text-ink hover:bg-bg-deep hover:border-border-hi"
-                }`}
-              >
-                {opt.label}
-              </button>
-            );
-          })}
-        </div>
+      {/* Three-panel grid — desktop: red | controls | blue. mobile: red+blue, controls full-width below. */}
+      <div className="grid grid-cols-2 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,22rem)_minmax(0,1fr)] gap-3 lg:gap-5">
+        <TeamCard
+          team="red"
+          members={members}
+          playerId={playerId}
+          me={me}
+          pending={pending}
+          isOffline={isOffline}
+          isOnline={isOnline}
+          onClaim={takeSeat}
+          className="lg:col-start-1 lg:row-start-1"
+        />
+        <TeamCard
+          team="blue"
+          members={members}
+          playerId={playerId}
+          me={me}
+          pending={pending}
+          isOffline={isOffline}
+          isOnline={isOnline}
+          onClaim={takeSeat}
+          className="lg:col-start-3 lg:row-start-1"
+        />
+        <ControlsCard
+          pending={pending}
+          turnDurationSeconds={turnDurationSeconds}
+          onSetShotClock={onSetShotClock}
+          onRandomize={onRandomize}
+          onReset={onReset}
+          disableRandomize={members.length === 0}
+          disableReset={members.every((m) => !m.team && !m.role)}
+          unassigned={unassigned}
+          playerId={playerId}
+          isOffline={isOffline}
+          className="col-span-2 lg:col-span-1 lg:col-start-2 lg:row-start-1"
+        />
       </div>
 
       {/* Tip-off CTA */}
@@ -355,21 +222,335 @@ export default function Lobby({
           </p>
         )}
       </div>
+    </div>
+  );
+}
 
-      {/* Roster ticker */}
-      <div className="flex items-center gap-3 text-[11px] text-dim font-[family-name:var(--font-display)] tracking-[0.3em] uppercase font-bold">
-        <span className="flex-1 h-px bg-border" />
-        <span className="truncate">
-          {members.length} in room
-          {members.length > 0 && " · "}
-          {members.map((m, i) => (
-            <span key={m.id} className={isOffline(m.id) ? "opacity-40" : ""}>
-              {m.display_name}
-              {i < members.length - 1 && " · "}
+type TeamCardProps = {
+  team: Team;
+  members: Member[];
+  playerId: string;
+  me: Member | null;
+  pending: boolean;
+  isOffline: (id: string) => boolean;
+  isOnline: (id: string) => boolean;
+  onClaim: (team: Team | null, role: Role | null) => void;
+  className?: string;
+};
+
+function TeamCard({
+  team,
+  members,
+  playerId,
+  me,
+  pending,
+  isOffline,
+  isOnline,
+  onClaim,
+  className = "",
+}: TeamCardProps) {
+  const t = TEAM_STYLES[team];
+  const teamMembers = members.filter((m) => m.team === team);
+  const coach = teamMembers.find((m) => m.role === "coach") ?? null;
+  const players = teamMembers.filter((m) => m.role === "player");
+  const coachOnline = coach ? isOnline(coach.id) : false;
+  const meIsThisTeam = me?.team === team;
+  const meIsPlayerOfThis = meIsThisTeam && me?.role === "player";
+
+  const coachClaimable =
+    !pending && (!coach || (coach.id !== playerId && !coachOnline));
+  const playerJoinable = !pending && !meIsPlayerOfThis;
+
+  return (
+    <div
+      className={`card-surface overflow-hidden flex flex-col h-full ${meIsThisTeam ? t.glow : ""} ${className}`}
+    >
+      {/* Team color band */}
+      <div className={`h-1 ${t.bar}`} />
+
+      {/* Header — team name + roster count (+ inline leave when on this team) */}
+      <div className="px-4 py-3 flex items-baseline justify-between gap-3">
+        <h2
+          className={`font-[family-name:var(--font-display)] font-black uppercase text-2xl sm:text-3xl tracking-tight ${t.text} leading-none`}
+        >
+          {team}
+        </h2>
+        <div className="flex items-baseline gap-2.5 shrink-0">
+          <span className="font-[family-name:var(--font-display)] text-[10px] font-bold tracking-[0.3em] uppercase text-dim">
+            {teamMembers.length} on roster
+          </span>
+          {meIsThisTeam && (
+            <>
+              <span className="text-dim text-[10px] leading-none">·</span>
+              <button
+                type="button"
+                disabled={pending}
+                onClick={() => onClaim(null, null)}
+                className="font-[family-name:var(--font-display)] text-[10px] font-black tracking-[0.3em] uppercase text-team-red hover:opacity-80 transition-opacity cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                ✕ Leave
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+
+      <div className="border-t border-border/40" />
+
+      {/* Coach section */}
+      <SeatSection
+        title="Coach"
+        icon="★"
+        iconClass="text-team-gold"
+        clickable={coachClaimable}
+        onClick={() => onClaim(team, "coach")}
+        hoverClass={t.hoverRow}
+        minHeightClass="min-h-[5.5rem]"
+      >
+        {coach ? (
+          <div className="flex items-center justify-between gap-2 min-w-0">
+            <span
+              className={`text-base font-semibold truncate ${t.text} ${!coachOnline ? "opacity-50" : ""}`}
+            >
+              {coach.display_name}
+              {coach.id === playerId && (
+                <span className="text-muted text-xs ml-1 font-normal">
+                  (you)
+                </span>
+              )}
             </span>
-          ))}
+            {!coachOnline && (
+              <span className="font-[family-name:var(--font-display)] text-[9px] font-bold tracking-[0.25em] uppercase text-dim shrink-0">
+                offline
+              </span>
+            )}
+          </div>
+        ) : (
+          <span className="text-sm text-dim italic opacity-60">
+            Open · tap to claim
+          </span>
+        )}
+      </SeatSection>
+
+      <div className="border-t border-border/40" />
+
+      {/* Players section — flex-1 so it absorbs vertical slack and keeps the
+          team card aligned in height with the controls card. */}
+      <SeatSection
+        title="Players"
+        icon="●"
+        iconClass={t.text}
+        clickable={playerJoinable}
+        onClick={() => onClaim(team, "player")}
+        hoverClass={t.hoverRow}
+        minHeightClass="min-h-[9rem] flex-1"
+      >
+        {players.length > 0 ? (
+          <ul
+            className={`gap-0.5 w-full ${players.length > 5 ? "columns-2 gap-x-3" : "flex flex-col"}`}
+          >
+            {players.map((m) => (
+              <li
+                key={m.id}
+                className={`text-sm text-ink truncate break-inside-avoid ${isOffline(m.id) ? "opacity-40" : ""}`}
+              >
+                {m.display_name}
+                {m.id === playerId && (
+                  <span className="text-muted text-xs ml-1">(you)</span>
+                )}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <span className="text-sm text-dim italic opacity-60">
+            Open · tap to join
+          </span>
+        )}
+      </SeatSection>
+    </div>
+  );
+}
+
+type SeatSectionProps = {
+  title: string;
+  icon: string;
+  iconClass: string;
+  clickable: boolean;
+  onClick: () => void;
+  hoverClass: string;
+  minHeightClass?: string;
+  children: ReactNode;
+};
+
+function SeatSection({
+  title,
+  icon,
+  iconClass,
+  clickable,
+  onClick,
+  hoverClass,
+  minHeightClass = "",
+  children,
+}: SeatSectionProps) {
+  const inner = (
+    <>
+      <div className="flex items-center gap-2">
+        <span className={`text-sm leading-none ${iconClass}`}>{icon}</span>
+        <span className="font-[family-name:var(--font-display)] text-[10px] font-black tracking-[0.32em] uppercase text-muted">
+          {title}
         </span>
-        <span className="flex-1 h-px bg-border" />
+      </div>
+      <div className="flex-1 flex flex-col justify-center w-full">
+        {children}
+      </div>
+    </>
+  );
+
+  if (clickable) {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        className={`w-full text-left px-4 py-3 flex flex-col gap-1.5 transition-colors cursor-pointer ${hoverClass} ${minHeightClass}`}
+      >
+        {inner}
+      </button>
+    );
+  }
+  return (
+    <div
+      className={`w-full px-4 py-3 flex flex-col gap-1.5 cursor-default ${minHeightClass}`}
+    >
+      {inner}
+    </div>
+  );
+}
+
+type ControlsCardProps = {
+  pending: boolean;
+  turnDurationSeconds: number | null;
+  onSetShotClock: (seconds: 60 | 90 | 120 | null) => void;
+  onRandomize: () => void;
+  onReset: () => void;
+  disableRandomize: boolean;
+  disableReset: boolean;
+  unassigned: Member[];
+  playerId: string;
+  isOffline: (id: string) => boolean;
+  className?: string;
+};
+
+function ControlsCard({
+  pending,
+  turnDurationSeconds,
+  onSetShotClock,
+  onRandomize,
+  onReset,
+  disableRandomize,
+  disableReset,
+  unassigned,
+  playerId,
+  isOffline,
+  className = "",
+}: ControlsCardProps) {
+  return (
+    <div
+      className={`card-surface overflow-hidden flex flex-col h-full ${className}`}
+    >
+      {/* Neutral top stripe — matches the team cards' color-band height so the
+          three cards line up at the top, but no color (signals "this isn't a team"). */}
+      <div className="h-1 bg-border/60" />
+
+      {/* Shot clock */}
+      <div className="px-4 py-3 flex flex-col gap-2">
+        <div className="flex items-center gap-2">
+          <span className="text-team-gold text-sm leading-none">◴</span>
+          <span className="font-[family-name:var(--font-display)] text-[10px] font-black tracking-[0.32em] uppercase text-muted">
+            Shot clock
+          </span>
+        </div>
+        <div className="grid grid-cols-4 gap-1.5">
+          {SHOT_CLOCK_OPTIONS.map((opt) => {
+            const selected = opt.value === turnDurationSeconds;
+            return (
+              <button
+                key={opt.label}
+                type="button"
+                disabled={pending}
+                onClick={() => onSetShotClock(opt.value)}
+                className={`py-2 px-2 font-[family-name:var(--font-display)] text-xs font-black tracking-[0.18em] uppercase border transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed ${
+                  selected
+                    ? "border-team-gold text-team-gold bg-team-gold/10"
+                    : "border-border bg-bg-deep/40 text-ink hover:bg-bg-deep hover:border-border-hi"
+                }`}
+              >
+                {opt.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="border-t border-border/40" />
+
+      {/* Team-management actions */}
+      <div className="px-4 py-3 grid grid-cols-2 gap-2">
+        <button
+          type="button"
+          disabled={pending || disableRandomize}
+          onClick={onRandomize}
+          className="py-2 px-2 font-[family-name:var(--font-display)] text-[11px] font-black tracking-[0.18em] uppercase border border-border bg-bg-deep/40 text-ink hover:bg-bg-deep hover:border-team-gold hover:text-team-gold transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-1.5"
+        >
+          <span className="text-sm opacity-70">↻</span>
+          <span>Randomize teams</span>
+        </button>
+        <button
+          type="button"
+          disabled={pending || disableReset}
+          onClick={onReset}
+          className="py-2 px-2 font-[family-name:var(--font-display)] text-[11px] font-black tracking-[0.18em] uppercase border border-border bg-bg-deep/40 text-ink hover:bg-bg-deep hover:border-team-red hover:text-team-red transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-1.5"
+        >
+          <span className="text-sm opacity-70">⌫</span>
+          <span>Reset teams</span>
+        </button>
+      </div>
+
+      <div className="border-t border-border/40" />
+
+      {/* Waiting room — flex-1 absorbs slack so the controls card height
+          matches the team cards regardless of how many people are unassigned. */}
+      <div className="px-4 py-3 flex flex-col gap-2 flex-1 min-h-[6rem]">
+        <div className="flex items-center justify-between">
+          <span className="font-[family-name:var(--font-display)] text-[10px] font-black tracking-[0.32em] uppercase text-muted">
+            Waiting room
+          </span>
+          <span className="font-[family-name:var(--font-display)] text-[10px] font-bold tracking-[0.3em] uppercase text-dim">
+            {unassigned.length}
+          </span>
+        </div>
+        {unassigned.length === 0 ? (
+          <p className="text-xs text-dim italic opacity-60">
+            Everyone has a seat.
+          </p>
+        ) : (
+          <ul
+            className={`gap-0.5 max-h-[14rem] overflow-y-auto ${unassigned.length > 5 ? "columns-2 gap-x-3" : "flex flex-col"}`}
+          >
+            {unassigned.map((m) => (
+              <li
+                key={m.id}
+                className={`text-sm text-ink truncate break-inside-avoid ${isOffline(m.id) ? "opacity-40" : ""}`}
+              >
+                {m.display_name}
+                {m.id === playerId && (
+                  <span className="text-muted text-xs ml-1 font-normal">
+                    (you)
+                  </span>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
     </div>
   );

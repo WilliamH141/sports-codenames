@@ -145,6 +145,28 @@ export async function setTeamRole(input: {
   if (error) throw new Error(`Failed to set role: ${error.message}`);
 }
 
+/** Lobby-only: clear every member's team + role, sending the whole room back
+    to the waiting list so seats can be re-picked from scratch. Sibling of
+    randomizeTeams — randomize scrambles, reset wipes. */
+export async function resetTeams(roomId: string): Promise<void> {
+  const db = getServerSupabase();
+
+  const { data: room, error: roomErr } = await db
+    .from("rooms")
+    .select("id, status")
+    .eq("id", roomId)
+    .single();
+  if (roomErr || !room) throw new Error("Room not found");
+  if (room.status !== "lobby")
+    throw new Error("Can only reset teams in the lobby");
+
+  const { error } = await db
+    .from("members")
+    .update({ team: null, role: null })
+    .eq("room_id", roomId);
+  if (error) throw new Error(error.message);
+}
+
 /** Shuffle every member in the room and split them evenly between red/blue.
     First member of each half becomes the coach; the rest are players. Only
     callable in lobby — once a game is in flight, mid-game seat changes go
