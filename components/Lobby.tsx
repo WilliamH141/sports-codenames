@@ -52,14 +52,27 @@ export default function Lobby({
   const isOffline = (id: string) =>
     presenceLoaded && onlineMemberIds != null && !onlineMemberIds.has(id);
 
-  const takeSeat = (team: Team | null, role: Role | null) =>
+  const isOnline = (id: string) =>
+    !presenceLoaded || onlineMemberIds == null || onlineMemberIds.has(id);
+
+  const takeSeat = (team: Team | null, role: Role | null) => {
+    // If claiming the coach seat and the current holder is offline, send
+    // force=true so the server kicks them — mirrors SeatPicker behaviour.
+    let force = false;
+    if (team && role === "coach") {
+      const holder = members.find(
+        (m) => m.team === team && m.role === "coach" && m.id !== playerId
+      );
+      if (holder && !isOnline(holder.id)) force = true;
+    }
     startTransition(async () => {
       try {
-        await setTeamRole({ roomId, playerId, team, role });
+        await setTeamRole({ roomId, playerId, team, role, force });
       } catch (err) {
         alert(err instanceof Error ? err.message : "Failed");
       }
     });
+  };
 
   const onStart = () =>
     startTransition(async () => {
@@ -128,8 +141,12 @@ export default function Lobby({
           const teamMembers = members.filter((m) => m.team === team);
           const coaches = teamMembers.filter((m) => m.role === "coach");
           const players = teamMembers.filter((m) => m.role === "player");
-          const coachTaken =
-            coaches.length > 0 && !coaches.some((m) => m.id === playerId);
+          // Coach seat is only "taken" if the holder is a DIFFERENT online
+          // player. An offline holder is treated as having vacated; clicking
+          // claim will force-kick them via setTeamRole.
+          const coachTaken = coaches.some(
+            (m) => m.id !== playerId && isOnline(m.id)
+          );
           const meIsThisTeam = me?.team === team;
 
           return (

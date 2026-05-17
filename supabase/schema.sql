@@ -70,6 +70,15 @@ alter table public.cards    enable row level security;
 alter table public.clues    enable row level security;
 alter table public.guesses  enable row level security;
 
+-- Replica identity FULL: required for Realtime's row-level filters (e.g.
+-- room_id=eq.X) to evaluate on UPDATE/DELETE events. Default DEFAULT only
+-- ships the primary key in DELETE payloads, which silently drops filtered
+-- DELETE events on the client.
+alter table public.cards    replica identity full;
+alter table public.clues    replica identity full;
+alter table public.members  replica identity full;
+alter table public.guesses  replica identity full;
+
 drop policy if exists "anon read rooms"    on public.rooms;
 drop policy if exists "anon read members"  on public.members;
 drop policy if exists "anon read cards"    on public.cards;
