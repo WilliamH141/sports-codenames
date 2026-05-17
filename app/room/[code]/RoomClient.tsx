@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { getBrowserSupabase } from "@/lib/supabase/browser";
 import { getDisplayName, getOrCreatePlayerId, setDisplayName } from "@/lib/identity";
-import { joinRoom, revealCard } from "@/app/actions";
+import { expireTurn, joinRoom, revealCard } from "@/app/actions";
 import type { Card, Member, Room, Team } from "@/lib/types";
 import Board from "@/components/Board";
 import ClueBanner from "@/components/ClueBanner";
@@ -14,6 +14,7 @@ import JoinModal from "@/components/JoinModal";
 import Lobby from "@/components/Lobby";
 import SeatPicker from "@/components/SeatPicker";
 import TeamPanel from "@/components/TeamPanel";
+import TurnTimer from "@/components/TurnTimer";
 import WinnerBanner from "@/components/WinnerBanner";
 
 type Props = {
@@ -249,6 +250,17 @@ export default function RoomClient({ initialRoom, initialMembers, initialCards }
             presenceLoaded={presenceLoaded}
           />
         </div>
+
+        {/* Shot clock */}
+        {!gameOver && room.current_team && room.turn_deadline && (
+          <TurnTimer
+            deadline={room.turn_deadline}
+            team={room.current_team}
+            onExpire={() => {
+              void expireTurn(room.id);
+            }}
+          />
+        )}
 
         {/* Seat picker — for fresh joiners / refreshed members with no seat yet. */}
         {!gameOver && (!me?.team || !me?.role) && playerId && (

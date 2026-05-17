@@ -16,6 +16,7 @@ export type Room = {
   current_clue_count: number | null;
   guesses_remaining: number | null;
   winner: Team | null;
+  turn_deadline: string | null;
   created_at: string;
 };
 

@@ -8,6 +8,9 @@ import { evaluateGuess, otherTeam } from "@/lib/game/rules";
 import type { Card, Role, Sport, Team } from "@/lib/types";
 
 const CODE_RETRY_LIMIT = 8;
+const TURN_DURATION_MS = 90_000;
+const nextDeadline = (): string =>
+  new Date(Date.now() + TURN_DURATION_MS).toISOString();
 
 export async function createRoom(sport: Sport = "nba"): Promise<never> {
   const db = getServerSupabase();
@@ -175,6 +178,7 @@ export async function startGame(roomId: string): Promise<void> {
       current_clue_word: null,
       current_clue_count: null,
       guesses_remaining: null,
+      turn_deadline: nextDeadline(),
     })
     .eq("id", roomId);
   if (error) throw new Error(error.message);
@@ -234,6 +238,7 @@ export async function submitClue(input: {
       current_clue_word: word,
       current_clue_count: input.count,
       guesses_remaining: input.count + 1,
+      turn_deadline: nextDeadline(),
     })
     .eq("id", input.roomId);
   if (roomUpdErr) throw new Error(roomUpdErr.message);
@@ -332,11 +337,13 @@ export async function revealCard(input: {
     roomPatch.current_clue_word = null;
     roomPatch.current_clue_count = null;
     roomPatch.guesses_remaining = null;
+    roomPatch.turn_deadline = null;
   } else if (outcome.endsTurn) {
     roomPatch.current_team = otherTeam(room.current_team as Team);
     roomPatch.current_clue_word = null;
     roomPatch.current_clue_count = null;
     roomPatch.guesses_remaining = null;
+    roomPatch.turn_deadline = nextDeadline();
   } else if (outcome.decrementsGuess) {
     roomPatch.guesses_remaining = (room.guesses_remaining ?? 0) - 1;
   }
@@ -380,7 +387,41 @@ export async function endTurn(input: {
       current_clue_word: null,
       current_clue_count: null,
       guesses_remaining: null,
+      turn_deadline: nextDeadline(),
     })
     .eq("id", input.roomId);
   if (error) throw new Error(error.message);
+}
+
+/**
+ * Called by clients when their local countdown reaches 0. The server is the
+ * source of truth: re-fetches the deadline and only flips the turn if the
+ * stored deadline has actually elapsed (and no other client has already
+ * flipped). Safe for multiple clients to call simultaneously.
+ */
+export async function expireTurn(roomId: string): Promise<void> {
+  const db = getServerSupabase();
+  const { data: room } = await db
+    .from("rooms")
+    .select("id, status, current_team, turn_deadline")
+    .eq("id", roomId)
+    .single();
+  if (!room) return;
+  if (room.status !== "playing") return;
+  if (!room.current_team || !room.turn_deadline) return;
+  if (new Date(room.turn_deadline).getTime() > Date.now()) return;
+
+  // Conditional update: if another client already flipped, turn_deadline has
+  // already changed and this update affects 0 rows. Optimistic concurrency.
+  await db
+    .from("rooms")
+    .update({
+      current_team: otherTeam(room.current_team as Team),
+      current_clue_word: null,
+      current_clue_count: null,
+      guesses_remaining: null,
+      turn_deadline: nextDeadline(),
+    })
+    .eq("id", roomId)
+    .eq("turn_deadline", room.turn_deadline);
 }

@@ -13,7 +13,7 @@ export default async function RoomPage({ params }: { params: Params }) {
   const { data: room, error } = await db
     .from("rooms")
     .select(
-      "id, code, sport, status, starting_team, current_team, current_clue_word, current_clue_count, guesses_remaining, winner, created_at"
+      "id, code, sport, status, starting_team, current_team, current_clue_word, current_clue_count, guesses_remaining, winner, turn_deadline, created_at"
     )
     .eq("code", upper)
     .single();

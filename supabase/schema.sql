@@ -15,6 +15,7 @@ create table if not exists public.rooms (
   current_clue_count   int,
   guesses_remaining    int,
   winner               text check (winner in ('red','blue')),
+  turn_deadline        timestamptz,
   created_at           timestamptz not null default now()
 );
 
