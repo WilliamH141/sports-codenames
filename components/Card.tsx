@@ -105,7 +105,8 @@ export default function Card({
 
       {/* Flag toggle — top-right corner, only renders during your team's
           guess phase on unrevealed cards. Its presence is itself the "your
-          turn" signal across the board. */}
+          turn" signal across the board. Pin SVG (not a star) keeps it
+          visually distinct from the coach-star icon used elsewhere. */}
       {canFlag && (
         <button
           type="button"
@@ -114,16 +115,31 @@ export default function Card({
             e.stopPropagation();
             onToggleTag?.(card);
           }}
-          className={`absolute top-1 right-1 w-5 h-5 sm:w-6 sm:h-6 rounded-full flex items-center justify-center text-[10px] sm:text-xs leading-none transition-colors cursor-pointer ${
+          className={`absolute top-1 right-1 w-7 h-7 sm:w-8 sm:h-8 rounded-full flex items-center justify-center transition-colors cursor-pointer ${
             myTag
               ? `${teamColor} text-white shadow-[0_0_0_2px_var(--color-bg-deep,#0a0f1e)]`
               : `bg-bg-deep/80 ${teamText} hover:bg-bg-deep`
           }`}
         >
-          ★
+          <PinIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
         </button>
       )}
     </div>
+  );
+}
+
+function PinIcon({ className = "" }: { className?: string }) {
+  // Simple map-pin shape — drop with a hollow center, reads as "your marker
+  // on this card." currentColor so the parent's text class drives the fill.
+  return (
+    <svg
+      viewBox="0 0 16 16"
+      fill="currentColor"
+      aria-hidden="true"
+      className={className}
+    >
+      <path d="M8 1.5c-2.76 0-5 2.24-5 5 0 3.5 5 8 5 8s5-4.5 5-8c0-2.76-2.24-5-5-5zm0 7a2 2 0 110-4 2 2 0 010 4z" />
+    </svg>
   );
 }
 
@@ -137,7 +153,7 @@ function Nameplate({ name, tag }: { name: string; tag: string | null }) {
           {first}
         </span>
       )}
-      <span className="mt-0.5 font-[family-name:var(--font-display)] font-black uppercase tracking-[-0.01em] leading-[0.92] text-balance text-center text-[13px] sm:text-[19px] line-clamp-2">
+      <span className="mt-0.5 font-[family-name:var(--font-display)] font-black uppercase tracking-[-0.01em] leading-[0.92] text-balance text-center text-[12px] sm:text-[18px] line-clamp-2 [overflow-wrap:anywhere]">
         {last}
       </span>
       {tag && (

@@ -54,8 +54,9 @@ export default function Home() {
           <form action={createNbaRoom} className="mt-8 w-full">
             <button
               type="submit"
-              className="cta-red w-full py-4 px-5 text-white font-[family-name:var(--font-display)] font-black tracking-[0.2em] text-base uppercase cursor-pointer flex items-center justify-center gap-3"
+              className="cta-red w-full py-4 px-5 text-white font-[family-name:var(--font-display)] font-black tracking-[0.2em] text-base uppercase cursor-pointer flex items-center justify-between gap-3"
             >
+              <span className="font-mono text-xs opacity-70">▸▸</span>
               <span className="text-lg">New Game</span>
               <span className="text-xl opacity-90">→</span>
             </button>
