@@ -5,10 +5,15 @@ import type { Team } from "@/lib/types";
 
 type Props = {
   team: Team;
-  phase: "clue" | "guess";
   deadline: string | null;
   /** Configured shot clock in seconds. Null = no timer (countdown hidden). */
   durationSeconds: number | null;
+  /** Viewer-contextual one-liner ("Tap cards that match the clue", "Waiting on
+      Bob", etc.). Computed by the parent based on viewer role + game state. */
+  prompt: string;
+  /** True when the prompt is asking the viewer to act now (vs. wait/watch).
+      Drives gold emphasis on the text. */
+  actionable: boolean;
   onExpire: () => void;
 };
 
@@ -23,7 +28,7 @@ const STYLE: Record<Team, { band: string; text: string; dot: string }> = {
  * align at the top of the body. Replaces the previous AwaitingStrip + TurnTimer
  * combo (those were in the center column and pushed the board down).
  */
-export default function TurnIndicator({ team, phase, deadline, durationSeconds, onExpire }: Props) {
+export default function TurnIndicator({ team, deadline, durationSeconds, prompt, actionable, onExpire }: Props) {
   const s = STYLE[team];
   const [now, setNow] = useState(() => Date.now());
   const firedFor = useRef<string | null>(null);
@@ -41,8 +46,6 @@ export default function TurnIndicator({ team, phase, deadline, durationSeconds, 
     firedFor.current = deadline;
     onExpire();
   }, [deadline, now, onExpire]);
-
-  const phaseLabel = phase === "clue" ? "Coach on clue" : "Players guessing";
 
   const remainingMs = deadline
     ? Math.max(0, new Date(deadline).getTime() - now)
@@ -71,8 +74,10 @@ export default function TurnIndicator({ team, phase, deadline, durationSeconds, 
             <span
               className={`ping-dot inline-block w-2 h-2 rounded-full ${s.dot}`}
             />
-            <span className="font-[family-name:var(--font-display)] text-[10px] sm:text-[11px] font-bold tracking-[0.35em] uppercase text-muted">
-              <span className={s.text}>{team}</span> · {phaseLabel}
+            <span
+              className={`font-[family-name:var(--font-display)] text-[10px] sm:text-[11px] font-bold tracking-[0.3em] uppercase truncate ${actionable ? "text-team-gold" : "text-muted"}`}
+            >
+              {prompt}
             </span>
           </div>
           {seconds != null && (

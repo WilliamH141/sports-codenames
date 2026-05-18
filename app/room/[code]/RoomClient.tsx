@@ -18,6 +18,58 @@ import TeamPanelRail from "@/components/TeamPanelRail";
 import TurnIndicator from "@/components/TurnIndicator";
 import WinnerBanner from "@/components/WinnerBanner";
 
+/** Viewer-contextual prompt for the turn strip. Speaks TO the viewer about
+    what they should do (or wait for) right now — not a neutral observer label.
+    Returns `actionable: true` when the viewer is the one who needs to act. */
+function turnPrompt(args: {
+  me: Member | null;
+  currentTeam: Team;
+  currentClueWord: string | null;
+  members: Member[];
+}): { text: string; actionable: boolean } {
+  const { me, currentTeam, currentClueWord, members } = args;
+  const inGuess = !!currentClueWord;
+  const coachName = (team: Team) =>
+    members.find((m) => m.team === team && m.role === "coach")?.display_name;
+
+  // Spectator / unseated viewer
+  if (!me?.team || !me?.role) {
+    if (inGuess) return { text: `${currentTeam} is guessing`, actionable: false };
+    const c = coachName(currentTeam);
+    return {
+      text: c ? `${c} is picking a clue` : `${currentTeam} is picking a clue`,
+      actionable: false,
+    };
+  }
+
+  const yourTurn = me.team === currentTeam;
+
+  if (yourTurn) {
+    if (!inGuess) {
+      if (me.role === "coach")
+        return { text: "Your turn — give a one-word clue", actionable: true };
+      const c = coachName(currentTeam);
+      return {
+        text: c ? `Waiting on ${c}` : "Waiting on your coach",
+        actionable: false,
+      };
+    }
+    if (me.role === "player")
+      return { text: "Tap cards your coach is hinting at", actionable: true };
+    return { text: "Your team is guessing", actionable: false };
+  }
+
+  // Opposing team's turn
+  if (!inGuess) {
+    const c = coachName(currentTeam);
+    return {
+      text: c ? `${c} is picking a clue` : `${currentTeam} is picking a clue`,
+      actionable: false,
+    };
+  }
+  return { text: `${currentTeam} is guessing`, actionable: false };
+}
+
 type Props = {
   initialRoom: Room;
   initialMembers: Member[];
@@ -274,15 +326,26 @@ export default function RoomClient({
         {gameOver && room.winner ? (
           <WinnerBanner winner={room.winner} roomId={room.id} />
         ) : !gameOver && room.current_team ? (
-          <TurnIndicator
-            team={room.current_team}
-            phase={room.current_clue_word ? "guess" : "clue"}
-            deadline={room.turn_deadline}
-            durationSeconds={room.turn_duration_seconds}
-            onExpire={() => {
-              void expireTurn(room.id);
-            }}
-          />
+          (() => {
+            const { text, actionable } = turnPrompt({
+              me,
+              currentTeam: room.current_team,
+              currentClueWord: room.current_clue_word,
+              members,
+            });
+            return (
+              <TurnIndicator
+                team={room.current_team}
+                deadline={room.turn_deadline}
+                durationSeconds={room.turn_duration_seconds}
+                prompt={text}
+                actionable={actionable}
+                onExpire={() => {
+                  void expireTurn(room.id);
+                }}
+              />
+            );
+          })()
         ) : null}
 
         {/* Body grid — mobile: 1 col, desktop: 14rem | board | 14rem */}
