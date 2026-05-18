@@ -10,6 +10,8 @@ type Props = {
   phase?: "clue" | "guess";
   /** Only meaningful during this team's guess phase. */
   guessesRemaining?: number | null;
+  /** Used to mark the viewer's own name with "(you)". */
+  playerId?: string;
   onlineMemberIds?: Set<string>;
   presenceLoaded?: boolean;
 };
@@ -38,6 +40,7 @@ export default function TeamPanelRail({
   remaining,
   phase,
   guessesRemaining,
+  playerId,
   onlineMemberIds,
   presenceLoaded = false,
 }: Props) {
@@ -101,6 +104,9 @@ export default function TeamPanelRail({
             className={`text-sm font-semibold truncate ${s.text} ${coach && isOffline(coach.id) ? "opacity-40" : ""}`}
           >
             {coach?.display_name ?? "—"}
+            {coach && coach.id === playerId && (
+              <span className="text-muted text-xs ml-1 font-normal">(you)</span>
+            )}
           </div>
         </div>
 
@@ -120,6 +126,11 @@ export default function TeamPanelRail({
                   className={`text-sm text-ink truncate ${isOffline(m.id) ? "opacity-40" : ""}`}
                 >
                   {m.display_name}
+                  {m.id === playerId && (
+                    <span className="text-muted text-xs ml-1 font-normal">
+                      (you)
+                    </span>
+                  )}
                 </li>
               ))}
             </ul>

@@ -297,6 +297,7 @@ export default function RoomClient({
               remaining={remaining.red}
               phase={!gameOver && room.current_team === "red" ? (room.current_clue_word ? "guess" : "clue") : undefined}
               guessesRemaining={room.current_team === "red" ? room.guesses_remaining : null}
+              playerId={playerId}
               onlineMemberIds={onlineMemberIds}
               presenceLoaded={presenceLoaded}
             />
@@ -307,6 +308,7 @@ export default function RoomClient({
               remaining={remaining.blue}
               phase={!gameOver && room.current_team === "blue" ? (room.current_clue_word ? "guess" : "clue") : undefined}
               guessesRemaining={room.current_team === "blue" ? room.guesses_remaining : null}
+              playerId={playerId}
               onlineMemberIds={onlineMemberIds}
               presenceLoaded={presenceLoaded}
             />
@@ -321,6 +323,7 @@ export default function RoomClient({
               remaining={remaining.red}
               phase={!gameOver && room.current_team === "red" ? (room.current_clue_word ? "guess" : "clue") : undefined}
               guessesRemaining={room.current_team === "red" ? room.guesses_remaining : null}
+              playerId={playerId}
               onlineMemberIds={onlineMemberIds}
               presenceLoaded={presenceLoaded}
             />
@@ -353,6 +356,7 @@ export default function RoomClient({
               remaining={remaining.blue}
               phase={!gameOver && room.current_team === "blue" ? (room.current_clue_word ? "guess" : "clue") : undefined}
               guessesRemaining={room.current_team === "blue" ? room.guesses_remaining : null}
+              playerId={playerId}
               onlineMemberIds={onlineMemberIds}
               presenceLoaded={presenceLoaded}
             />
