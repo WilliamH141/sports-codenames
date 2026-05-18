@@ -358,6 +358,63 @@ export async function submitClue(input: {
   if (roomUpdErr) throw new Error(roomUpdErr.message);
 }
 
+/** Toggle the caller's tag on a card. Tags are an in-turn coordination tool —
+    a player can soft-flag cards they're considering before anyone commits to
+    a reveal. Allowed only during the current team's guess phase. */
+export async function toggleCardTag(input: {
+  roomId: string;
+  cardId: string;
+  playerId: string;
+}): Promise<void> {
+  const db = getServerSupabase();
+
+  const { data: room } = await db
+    .from("rooms")
+    .select("status, current_team, current_clue_word")
+    .eq("id", input.roomId)
+    .single();
+  if (!room || room.status !== "playing") return;
+  if (!room.current_clue_word) return;
+
+  const { data: member } = await db
+    .from("members")
+    .select("team, role")
+    .eq("room_id", input.roomId)
+    .eq("id", input.playerId)
+    .single();
+  if (!member || member.role !== "player" || member.team !== room.current_team)
+    return;
+
+  const { data: card } = await db
+    .from("cards")
+    .select("revealed")
+    .eq("id", input.cardId)
+    .eq("room_id", input.roomId)
+    .single();
+  if (!card || card.revealed) return;
+
+  const { data: existing } = await db
+    .from("card_tags")
+    .select("card_id")
+    .eq("card_id", input.cardId)
+    .eq("member_id", input.playerId)
+    .maybeSingle();
+
+  if (existing) {
+    await db
+      .from("card_tags")
+      .delete()
+      .eq("card_id", input.cardId)
+      .eq("member_id", input.playerId);
+  } else {
+    await db.from("card_tags").insert({
+      card_id: input.cardId,
+      member_id: input.playerId,
+      room_id: input.roomId,
+    });
+  }
+}
+
 export async function revealCard(input: {
   roomId: string;
   cardId: string;
@@ -428,6 +485,10 @@ export async function revealCard(input: {
     .eq("id", targetCard.id);
   if (revealErr) throw new Error(revealErr.message);
 
+  // The revealed card no longer needs tags; clear them. If the turn is also
+  // ending (caught below) we'll wipe the whole room's tags after the patch.
+  await db.from("card_tags").delete().eq("card_id", targetCard.id);
+
   // Find the current (latest) clue id for history.
   const { data: latestClue } = await db
     .from("clues")
@@ -465,6 +526,12 @@ export async function revealCard(input: {
   if (Object.keys(roomPatch).length) {
     const { error } = await db.from("rooms").update(roomPatch).eq("id", input.roomId);
     if (error) throw new Error(error.message);
+  }
+
+  // Turn flipped or game over → clear every tag in the room. Tags are a
+  // per-guess-phase coordination tool, not persisted across turns.
+  if (outcome.endsTurn || outcome.status === "finished") {
+    await db.from("card_tags").delete().eq("room_id", input.roomId);
   }
 }
 
@@ -505,6 +572,9 @@ export async function endTurn(input: {
     })
     .eq("id", input.roomId);
   if (error) throw new Error(error.message);
+
+  // Wipe tags — they were tied to the turn that just ended.
+  await db.from("card_tags").delete().eq("room_id", input.roomId);
 }
 
 /** End-of-game "Play again": reset to lobby with a fresh board waiting for
@@ -524,6 +594,7 @@ export async function backToLobby(roomId: string): Promise<void> {
 
   await db.from("guesses").delete().eq("room_id", roomId);
   await db.from("clues").delete().eq("room_id", roomId);
+  await db.from("card_tags").delete().eq("room_id", roomId);
   await db.from("cards").delete().eq("room_id", roomId);
 
   const startingTeam: Team = Math.random() < 0.5 ? "red" : "blue";
@@ -585,4 +656,7 @@ export async function expireTurn(roomId: string): Promise<void> {
     })
     .eq("id", roomId)
     .eq("turn_deadline", room.turn_deadline);
+
+  // Tags were tied to the expired turn — wipe them.
+  await db.from("card_tags").delete().eq("room_id", roomId);
 }

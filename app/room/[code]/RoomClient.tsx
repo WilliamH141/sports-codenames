@@ -4,8 +4,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { getBrowserSupabase } from "@/lib/supabase/browser";
 import { getDisplayName, getOrCreatePlayerId, setDisplayName } from "@/lib/identity";
-import { expireTurn, joinRoom, revealCard } from "@/app/actions";
-import type { Card, Member, Room, Team } from "@/lib/types";
+import { expireTurn, joinRoom, revealCard, toggleCardTag } from "@/app/actions";
+import type { Card, CardTag, Member, Room, Team } from "@/lib/types";
 import Board from "@/components/Board";
 import ClueBanner from "@/components/ClueBanner";
 import ClueInput from "@/components/ClueInput";
@@ -22,12 +22,19 @@ type Props = {
   initialRoom: Room;
   initialMembers: Member[];
   initialCards: Card[];
+  initialTags: CardTag[];
 };
 
-export default function RoomClient({ initialRoom, initialMembers, initialCards }: Props) {
+export default function RoomClient({
+  initialRoom,
+  initialMembers,
+  initialCards,
+  initialTags,
+}: Props) {
   const [room, setRoom] = useState<Room>(initialRoom);
   const [members, setMembers] = useState<Member[]>(initialMembers);
   const [cards, setCards] = useState<Card[]>(initialCards);
+  const [tags, setTags] = useState<CardTag[]>(initialTags);
   const [playerId, setPlayerId] = useState<string>("");
   const [needsName, setNeedsName] = useState<boolean>(false);
   const [revealing, setRevealing] = useState(false);
@@ -118,6 +125,28 @@ export default function RoomClient({ initialRoom, initialMembers, initialCards }
           });
         }
       )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "card_tags", filter: `room_id=eq.${room.id}` },
+        (payload) => {
+          setTags((prev) => {
+            if (payload.eventType === "DELETE") {
+              const old = payload.old as { card_id?: string; member_id?: string };
+              return prev.filter(
+                (t) => !(t.card_id === old.card_id && t.member_id === old.member_id)
+              );
+            }
+            const next = payload.new as CardTag;
+            const idx = prev.findIndex(
+              (t) => t.card_id === next.card_id && t.member_id === next.member_id
+            );
+            if (idx === -1) return [...prev, next];
+            const copy = prev.slice();
+            copy[idx] = next;
+            return copy;
+          });
+        }
+      )
       .on("presence", { event: "sync" }, () => {
         const state = channel.presenceState();
         setOnlineMemberIds(new Set(Object.keys(state)));
@@ -149,6 +178,11 @@ export default function RoomClient({ initialRoom, initialMembers, initialCards }
   // Single-flight lock: rapid taps used to queue up server actions that ran
   // against stale state and surfaced "wait for a clue" alerts. One reveal at a
   // time; subsequent taps are dropped, not queued.
+  const onToggleTag = (card: Card) => {
+    if (!playerId) return;
+    void toggleCardTag({ roomId: room.id, cardId: card.id, playerId });
+  };
+
   const onCardClick = (card: Card) => {
     if (!playerId || revealInFlight.current) return;
     revealInFlight.current = true;
@@ -296,6 +330,9 @@ export default function RoomClient({ initialRoom, initialMembers, initialCards }
           <div className="min-w-0">
             <Board
               cards={cards}
+              members={members}
+              tags={tags}
+              playerId={playerId}
               viewerRole={me?.role ?? null}
               viewerTeam={me?.team ?? null}
               currentTeam={room.current_team}
@@ -303,6 +340,7 @@ export default function RoomClient({ initialRoom, initialMembers, initialCards }
               awaitingClue={awaitingClue}
               locked={revealing}
               onCardClick={onCardClick}
+              onToggleTag={onToggleTag}
             />
           </div>
 

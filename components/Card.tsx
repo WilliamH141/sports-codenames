@@ -1,12 +1,21 @@
 "use client";
 
-import type { Card as CardModel, CardType } from "@/lib/types";
+import type { Card as CardModel, CardType, Team } from "@/lib/types";
+import type { CardTagInfo } from "./Board";
 
 type Props = {
   card: CardModel;
   showKey: boolean; // coach view OR game over
   clickable: boolean;
+  /** True when the viewer can place/remove their own tag on unrevealed cards. */
+  taggable: boolean;
+  /** True when the viewer currently has this card tagged. */
+  myTag: boolean;
+  /** Current team — used to color the flag chip + tag badges. */
+  tagTeam: Team | null;
+  tags: CardTagInfo[];
   onClick?: (card: CardModel) => void;
+  onToggleTag?: (card: CardModel) => void;
 };
 
 const REVEALED_CLASS: Record<CardType, string> = {
@@ -36,47 +45,89 @@ function splitName(full: string): { first: string; last: string } {
   return { first: full.slice(0, idx), last: full.slice(idx + 1) };
 }
 
-export default function Card({ card, showKey, clickable, onClick }: Props) {
+export default function Card({
+  card,
+  showKey,
+  clickable,
+  taggable,
+  myTag,
+  tagTeam,
+  tags,
+  onClick,
+  onToggleTag,
+}: Props) {
   const canTap = clickable && !card.revealed;
+  const canFlag = taggable && !card.revealed;
   const frontTileClass = showKey ? `tile ${KEY_CLASS[card.card_type]}` : "tile";
   const backTileClass = `tile ${REVEALED_CLASS[card.card_type]}`;
+  const teamColor = tagTeam === "red" ? "bg-team-red" : "bg-team-blue";
+  const teamText = tagTeam === "red" ? "text-team-red" : "text-team-blue";
 
   return (
-    <button
-      type="button"
-      disabled={!canTap}
-      onClick={() => onClick?.(card)}
+    <div
       style={{ animationDelay: `${card.position * 18}ms` }}
-      className={`flipper tile-enter aspect-[5/3] sm:aspect-[7/4] rounded-md outline-none focus-visible:ring-2 focus-visible:ring-team-gold ${canTap ? "flipper-tap cursor-pointer" : "cursor-default"}`}
+      className="relative tile-enter aspect-[5/3] sm:aspect-[7/4]"
     >
-      <div className={`flipper-inner ${card.revealed ? "flipper-flipped" : ""}`}>
-        <div className={`face face-front ${frontTileClass}`}>
-          <Nameplate
-            name={card.player_name}
-            variant={card.card_type}
-            tag={null}
-          />
+      <button
+        type="button"
+        disabled={!canTap}
+        onClick={() => onClick?.(card)}
+        className={`flipper absolute inset-0 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-team-gold ${canTap ? "flipper-tap cursor-pointer" : "cursor-default"}`}
+      >
+        <div className={`flipper-inner ${card.revealed ? "flipper-flipped" : ""}`}>
+          <div className={`face face-front ${frontTileClass}`}>
+            <Nameplate name={card.player_name} tag={null} />
+          </div>
+          <div className={`face face-back ${backTileClass}`}>
+            <Nameplate
+              name={card.player_name}
+              tag={REVEAL_TAG[card.card_type]}
+            />
+          </div>
         </div>
-        <div className={`face face-back ${backTileClass}`}>
-          <Nameplate
-            name={card.player_name}
-            variant={card.card_type}
-            tag={REVEAL_TAG[card.card_type]}
-          />
+      </button>
+
+      {/* Tagger initials — bottom-left chips, visible to all. Only the front
+          face shows them; once revealed the back covers them naturally. */}
+      {!card.revealed && tags.length > 0 && (
+        <div className="absolute bottom-1 left-1 flex flex-wrap gap-0.5 pointer-events-none max-w-[70%]">
+          {tags.map((t) => (
+            <span
+              key={t.memberId}
+              title={t.displayName}
+              className={`${teamColor} ${t.isMe ? "ring-1 ring-team-gold" : ""} text-white font-[family-name:var(--font-display)] font-black uppercase text-[8px] sm:text-[9px] leading-none rounded-sm px-1 py-0.5 tracking-wide`}
+            >
+              {t.initial}
+            </span>
+          ))}
         </div>
-      </div>
-    </button>
+      )}
+
+      {/* Flag toggle — top-right corner, only renders during your team's
+          guess phase on unrevealed cards. Its presence is itself the "your
+          turn" signal across the board. */}
+      {canFlag && (
+        <button
+          type="button"
+          aria-label={myTag ? "Remove your tag" : "Tag this card"}
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleTag?.(card);
+          }}
+          className={`absolute top-1 right-1 w-5 h-5 sm:w-6 sm:h-6 rounded-full flex items-center justify-center text-[10px] sm:text-xs leading-none transition-colors cursor-pointer ${
+            myTag
+              ? `${teamColor} text-white shadow-[0_0_0_2px_var(--color-bg-deep,#0a0f1e)]`
+              : `bg-bg-deep/80 ${teamText} hover:bg-bg-deep`
+          }`}
+        >
+          ★
+        </button>
+      )}
+    </div>
   );
 }
 
-function Nameplate({
-  name,
-  tag,
-}: {
-  name: string;
-  variant: CardType;
-  tag: string | null;
-}) {
+function Nameplate({ name, tag }: { name: string; tag: string | null }) {
   const { first, last } = splitName(name);
 
   return (

@@ -41,6 +41,13 @@ export type Card = {
   revealed_by_team: Team | null;
 };
 
+export type CardTag = {
+  card_id: string;
+  member_id: string;
+  room_id: string;
+  created_at?: string;
+};
+
 export type Clue = {
   id: string;
   room_id: string;

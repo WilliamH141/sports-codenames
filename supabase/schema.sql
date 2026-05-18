@@ -53,6 +53,15 @@ create table if not exists public.clues (
 );
 create index if not exists clues_room_idx on public.clues(room_id);
 
+create table if not exists public.card_tags (
+  card_id     uuid not null references public.cards(id) on delete cascade,
+  member_id   uuid not null,
+  room_id     uuid not null references public.rooms(id) on delete cascade,
+  created_at  timestamptz not null default now(),
+  primary key (card_id, member_id)
+);
+create index if not exists card_tags_room_idx on public.card_tags(room_id);
+
 create table if not exists public.guesses (
   id          uuid primary key default gen_random_uuid(),
   room_id     uuid not null references public.rooms(id) on delete cascade,
@@ -65,32 +74,36 @@ create index if not exists guesses_room_idx on public.guesses(room_id);
 
 -- RLS: anyone with the code can read; nobody can write via anon key.
 -- Mutations go through Next.js Server Actions using the service role.
-alter table public.rooms    enable row level security;
-alter table public.members  enable row level security;
-alter table public.cards    enable row level security;
-alter table public.clues    enable row level security;
-alter table public.guesses  enable row level security;
+alter table public.rooms      enable row level security;
+alter table public.members    enable row level security;
+alter table public.cards      enable row level security;
+alter table public.clues      enable row level security;
+alter table public.guesses    enable row level security;
+alter table public.card_tags  enable row level security;
 
 -- Replica identity FULL: required for Realtime's row-level filters (e.g.
 -- room_id=eq.X) to evaluate on UPDATE/DELETE events. Default DEFAULT only
 -- ships the primary key in DELETE payloads, which silently drops filtered
 -- DELETE events on the client.
-alter table public.cards    replica identity full;
-alter table public.clues    replica identity full;
-alter table public.members  replica identity full;
-alter table public.guesses  replica identity full;
+alter table public.cards      replica identity full;
+alter table public.clues      replica identity full;
+alter table public.members    replica identity full;
+alter table public.guesses    replica identity full;
+alter table public.card_tags  replica identity full;
 
-drop policy if exists "anon read rooms"    on public.rooms;
-drop policy if exists "anon read members"  on public.members;
-drop policy if exists "anon read cards"    on public.cards;
-drop policy if exists "anon read clues"    on public.clues;
-drop policy if exists "anon read guesses"  on public.guesses;
+drop policy if exists "anon read rooms"      on public.rooms;
+drop policy if exists "anon read members"    on public.members;
+drop policy if exists "anon read cards"      on public.cards;
+drop policy if exists "anon read clues"      on public.clues;
+drop policy if exists "anon read guesses"    on public.guesses;
+drop policy if exists "anon read card_tags"  on public.card_tags;
 
-create policy "anon read rooms"    on public.rooms    for select using (true);
-create policy "anon read members"  on public.members  for select using (true);
-create policy "anon read cards"    on public.cards    for select using (true);
-create policy "anon read clues"    on public.clues    for select using (true);
-create policy "anon read guesses"  on public.guesses  for select using (true);
+create policy "anon read rooms"      on public.rooms      for select using (true);
+create policy "anon read members"    on public.members    for select using (true);
+create policy "anon read cards"      on public.cards      for select using (true);
+create policy "anon read clues"      on public.clues      for select using (true);
+create policy "anon read guesses"    on public.guesses    for select using (true);
+create policy "anon read card_tags"  on public.card_tags  for select using (true);
 
 -- Realtime publication. Idempotent — skip an ADD if the table is already in.
 do $$
@@ -103,7 +116,7 @@ end$$;
 do $$
 declare t text;
 begin
-  foreach t in array array['rooms','members','cards','clues'] loop
+  foreach t in array array['rooms','members','cards','clues','card_tags'] loop
     if not exists (
       select 1 from pg_publication_tables
       where pubname = 'supabase_realtime'
