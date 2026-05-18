@@ -1,11 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import Link from "next/link";
 import { getBrowserSupabase } from "@/lib/supabase/browser";
 import { getDisplayName, getOrCreatePlayerId, setDisplayName } from "@/lib/identity";
 import { expireTurn, joinRoom, revealCard, toggleCardTag } from "@/app/actions";
 import type { Card, CardTag, Member, Room, Team } from "@/lib/types";
+import LeaveButton from "@/components/LeaveButton";
 import Board from "@/components/Board";
 import ClueBanner from "@/components/ClueBanner";
 import ClueInput from "@/components/ClueInput";
@@ -216,7 +216,11 @@ export default function RoomClient({
 
   if (room.status === "lobby") {
     return (
-      <main className="min-h-dvh px-4 sm:px-6 py-8 sm:py-12">
+      <main className="min-h-dvh px-4 sm:px-6 py-4 sm:py-6 flex flex-col gap-6 sm:gap-8">
+        {/* Thin top row — just a leave affordance for the lobby. */}
+        <div className="flex justify-end">
+          <LeaveButton />
+        </div>
         <Lobby
           roomId={room.id}
           code={room.code}
@@ -260,12 +264,7 @@ export default function RoomClient({
               <span className="text-dim">Room</span>{" "}
               <span className="text-ink ml-1">{room.code}</span>
             </span>
-            <Link
-              href="/"
-              className={`font-[family-name:var(--font-display)] text-[10px] font-black tracking-[0.25em] uppercase transition-colors ${gameOver ? "text-team-red hover:opacity-80" : "text-dim hover:text-team-gold"}`}
-            >
-              Leave →
-            </Link>
+            <LeaveButton variant={gameOver ? "danger" : "default"} />
           </div>
         </header>
 
