@@ -112,6 +112,21 @@ export async function setTeamRole(input: {
   if (room.status === "finished")
     throw new Error("Game is over");
 
+  // Mid-game seat changes: only newcomers (no team or role yet) may claim a
+  // seat. Existing players can't switch teams or roles mid-game — that would
+  // break the game state. In lobby, anything goes.
+  if (room.status === "playing") {
+    const { data: caller } = await db
+      .from("members")
+      .select("team, role")
+      .eq("room_id", input.roomId)
+      .eq("id", input.playerId)
+      .maybeSingle();
+    if (caller?.team && caller?.role) {
+      throw new Error("Can't change seats once the game has started");
+    }
+  }
+
   if (input.team && input.role === "coach") {
     if (input.force) {
       // Vacate any other coach on this team before claiming.

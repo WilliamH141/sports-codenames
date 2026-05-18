@@ -143,25 +143,20 @@ export default function Lobby({
 
   return (
     <div className="w-full max-w-6xl mx-auto flex flex-col gap-5 sm:gap-7 stagger">
-      {/* Room code — its own row, no card. The accent rule below ties it to
-          the page while keeping it visually distinct from the panels below. */}
+      {/* Room code — the code itself is the copy target. One big tap area,
+          perfectly centered, with a brief feedback state on copy. */}
       <div className="flex flex-col items-center gap-2">
         <span className="font-[family-name:var(--font-display)] text-[10px] font-black tracking-[0.4em] uppercase text-dim">
-          Share room code
+          {copied ? "✓ Copied" : "Tap to copy room code"}
         </span>
-        <div className="flex items-center gap-3">
-          <span className="font-[family-name:var(--font-display)] font-black text-4xl sm:text-5xl tracking-[0.5em] text-ink leading-none pr-[0.5em]">
-            {code}
-          </span>
-          <button
-            type="button"
-            onClick={copyCode}
-            className="font-[family-name:var(--font-display)] text-[11px] font-black tracking-[0.22em] uppercase text-muted hover:text-team-gold transition-colors cursor-pointer px-2 py-1"
-            aria-label="Copy code"
-          >
-            {copied ? "✓ Copied" : "Copy"}
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={copyCode}
+          className="font-[family-name:var(--font-display)] font-black text-4xl sm:text-5xl tracking-[0.5em] text-ink leading-none pl-[0.5em] hover:text-team-gold transition-colors cursor-pointer"
+          aria-label={`Copy room code ${code}`}
+        >
+          {code}
+        </button>
         <div className="vs-rule w-32 sm:w-44 mt-1" />
       </div>
 
@@ -268,31 +263,18 @@ function TeamCard({
       {/* Team color band */}
       <div className={`h-1 ${t.bar}`} />
 
-      {/* Header — team name + roster count (+ inline leave when on this team) */}
+      {/* Header — team name + roster count. Leave action lives inside the
+          specific seat section you hold, not up here (contextually tied to
+          the seat). */}
       <div className="px-4 py-3 flex items-baseline justify-between gap-3">
         <h2
           className={`font-[family-name:var(--font-display)] font-black uppercase text-2xl sm:text-3xl tracking-tight ${t.text} leading-none`}
         >
           {team}
         </h2>
-        <div className="flex items-baseline gap-2.5 shrink-0">
-          <span className="font-[family-name:var(--font-display)] text-[10px] font-bold tracking-[0.3em] uppercase text-dim">
-            {teamMembers.length} on roster
-          </span>
-          {meIsThisTeam && (
-            <>
-              <span className="text-dim text-[10px] leading-none">·</span>
-              <button
-                type="button"
-                disabled={pending}
-                onClick={() => onClaim(null, null)}
-                className="font-[family-name:var(--font-display)] text-[10px] font-black tracking-[0.3em] uppercase text-team-red hover:opacity-80 transition-opacity cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                ✕ Leave
-              </button>
-            </>
-          )}
-        </div>
+        <span className="font-[family-name:var(--font-display)] text-[10px] font-bold tracking-[0.3em] uppercase text-dim shrink-0">
+          {teamMembers.length} on roster
+        </span>
       </div>
 
       <div className="border-t border-border/40" />
@@ -306,6 +288,12 @@ function TeamCard({
         onClick={() => onClaim(team, "coach")}
         hoverClass={t.hoverRow}
         minHeightClass="min-h-[5.5rem]"
+        filled={coach != null}
+        hintVerb="claim"
+        onLeave={
+          coach?.id === playerId ? () => onClaim(null, null) : undefined
+        }
+        pending={pending}
       >
         {coach ? (
           <div className="flex items-center justify-between gap-2 min-w-0">
@@ -326,9 +314,7 @@ function TeamCard({
             )}
           </div>
         ) : (
-          <span className="text-sm text-dim italic opacity-60">
-            Open · tap to claim
-          </span>
+          <span className="text-sm text-dim italic opacity-60">Open</span>
         )}
       </SeatSection>
 
@@ -344,6 +330,10 @@ function TeamCard({
         onClick={() => onClaim(team, "player")}
         hoverClass={t.hoverRow}
         minHeightClass="min-h-[9rem] flex-1"
+        filled={players.length > 0}
+        hintVerb="join"
+        onLeave={meIsPlayerOfThis ? () => onClaim(null, null) : undefined}
+        pending={pending}
       >
         {players.length > 0 ? (
           <ul
@@ -362,9 +352,7 @@ function TeamCard({
             ))}
           </ul>
         ) : (
-          <span className="text-sm text-dim italic opacity-60">
-            Open · tap to join
-          </span>
+          <span className="text-sm text-dim italic opacity-60">Open</span>
         )}
       </SeatSection>
     </div>
@@ -379,6 +367,16 @@ type SeatSectionProps = {
   onClick: () => void;
   hoverClass: string;
   minHeightClass?: string;
+  /** True when the seat has an occupant (filled coach, or one+ players). Used
+      to decide alignment (top vs center) and whether to show the persistent
+      "tap to ..." affordance hint. */
+  filled: boolean;
+  /** Verb shown in the affordance hint when clickable + filled, e.g. "join". */
+  hintVerb: string;
+  /** When present, this section is the user's current seat — render a Leave
+      button in the header right slot (takes priority over the tap hint). */
+  onLeave?: () => void;
+  pending?: boolean;
   children: ReactNode;
 };
 
@@ -390,17 +388,40 @@ function SeatSection({
   onClick,
   hoverClass,
   minHeightClass = "",
+  filled,
+  hintVerb,
+  onLeave,
+  pending = false,
   children,
 }: SeatSectionProps) {
+  // Filled content reads top-down (list of names); empty placeholder floats
+  // in the vertical middle so it doesn't look top-stuck in a stretched box.
+  const bodyAlign = filled ? "justify-start pt-1" : "justify-center";
   const inner = (
     <>
-      <div className="flex items-center gap-2">
-        <span className={`text-sm leading-none ${iconClass}`}>{icon}</span>
-        <span className="font-[family-name:var(--font-display)] text-[10px] font-black tracking-[0.32em] uppercase text-muted">
-          {title}
-        </span>
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <span className={`text-sm leading-none ${iconClass}`}>{icon}</span>
+          <span className="font-[family-name:var(--font-display)] text-[10px] font-black tracking-[0.32em] uppercase text-muted">
+            {title}
+          </span>
+        </div>
+        {onLeave ? (
+          <button
+            type="button"
+            disabled={pending}
+            onClick={onLeave}
+            className="font-[family-name:var(--font-display)] text-[10px] font-black tracking-[0.28em] uppercase text-team-red hover:opacity-80 transition-opacity cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            ✕ Leave
+          </button>
+        ) : clickable ? (
+          <span className="font-[family-name:var(--font-display)] text-[10px] font-black tracking-[0.28em] uppercase text-dim">
+            + Tap to {hintVerb}
+          </span>
+        ) : null}
       </div>
-      <div className="flex-1 flex flex-col justify-center w-full">
+      <div className={`flex-1 flex flex-col w-full ${bodyAlign}`}>
         {children}
       </div>
     </>
