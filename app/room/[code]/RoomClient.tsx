@@ -6,6 +6,7 @@ import { getDisplayName, getOrCreatePlayerId, setDisplayName } from "@/lib/ident
 import { expireTurn, joinRoom, revealCard, toggleCardTag } from "@/app/actions";
 import type { Card, CardTag, Member, Room, Team } from "@/lib/types";
 import LeaveButton from "@/components/LeaveButton";
+import HowToPlayButton from "@/components/HowToPlayButton";
 import Board from "@/components/Board";
 import ClueBanner from "@/components/ClueBanner";
 import ClueInput from "@/components/ClueInput";
@@ -269,8 +270,9 @@ export default function RoomClient({
   if (room.status === "lobby") {
     return (
       <main className="min-h-dvh px-4 sm:px-6 py-4 sm:py-6 flex flex-col gap-6 sm:gap-8">
-        {/* Thin top row — just a leave affordance for the lobby. */}
-        <div className="flex justify-end">
+        {/* Thin top row — How-to-play + Leave. */}
+        <div className="flex justify-end items-center gap-4">
+          <HowToPlayButton />
           <LeaveButton />
         </div>
         <Lobby
@@ -316,6 +318,7 @@ export default function RoomClient({
               <span className="text-dim">Room</span>{" "}
               <span className="text-ink ml-1">{room.code}</span>
             </span>
+            <HowToPlayButton />
             <LeaveButton variant={gameOver ? "danger" : "default"} />
           </div>
         </header>

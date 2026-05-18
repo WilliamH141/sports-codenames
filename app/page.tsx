@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { createRoom } from "@/app/actions";
+import HowToPlayButton from "@/components/HowToPlayButton";
 
 async function joinByCode(formData: FormData) {
   "use server";
@@ -26,9 +27,12 @@ export default function Home() {
             Sports Codenames
           </span>
         </div>
-        <span className="font-[family-name:var(--font-display)] text-xs font-bold tracking-[0.28em] uppercase text-muted">
-          v0.1
-        </span>
+        <div className="flex items-center gap-4">
+          <HowToPlayButton />
+          <span className="font-[family-name:var(--font-display)] text-xs font-bold tracking-[0.28em] uppercase text-muted">
+            v0.1
+          </span>
+        </div>
       </header>
 
       {/* Hero */}
