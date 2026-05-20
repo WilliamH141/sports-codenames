@@ -26,8 +26,9 @@ const nextDeadline = (seconds: number | null): string | null =>
   seconds == null ? null : new Date(Date.now() + seconds * 1000).toISOString();
 
 export async function createRoom(sport: Sport = "nba"): Promise<never> {
-  // Per-IP cap on new rooms. Each room inserts ~26 rows (1 room + 25 cards),
-  // so a single bad actor could fill the DB quickly without this.
+  // Per-IP cap on new rooms. A single bad actor could spawn many rooms
+  // without this. Cards aren't seeded until Tip-off, so the per-room
+  // footprint is small (~1 room row + member rows as they join).
   const ip = await getClientIp();
   const limit = rateLimit(
     `createRoom:${ip}`,
@@ -43,7 +44,6 @@ export async function createRoom(sport: Sport = "nba"): Promise<never> {
   const startingTeam: Team = Math.random() < 0.5 ? "red" : "blue";
 
   let code = "";
-  let roomId = "";
   for (let attempt = 0; attempt < CODE_RETRY_LIMIT; attempt++) {
     const candidate = generateRoomCode(4);
     const { data, error } = await db
@@ -54,11 +54,10 @@ export async function createRoom(sport: Sport = "nba"): Promise<never> {
         status: "lobby",
         starting_team: startingTeam,
       })
-      .select("id, code")
+      .select("code")
       .single();
     if (!error && data) {
       code = data.code;
-      roomId = data.id;
       break;
     }
     // 23505 = unique violation; retry. Other errors: bail.
@@ -66,21 +65,10 @@ export async function createRoom(sport: Sport = "nba"): Promise<never> {
       throw new Error(`Failed to create room: ${error.message}`);
     }
   }
-  if (!code || !roomId) throw new Error("Could not allocate a room code");
+  if (!code) throw new Error("Could not allocate a room code");
 
-  const seeds = dealBoard(sport, startingTeam);
-  const { error: cardsError } = await db.from("cards").insert(
-    seeds.map((s) => ({
-      room_id: roomId,
-      position: s.position,
-      player_name: s.player_name,
-      card_type: s.card_type,
-    }))
-  );
-  if (cardsError) {
-    await db.from("rooms").delete().eq("id", roomId);
-    throw new Error(`Failed to seed board: ${cardsError.message}`);
-  }
+  // Cards are dealt at startGame (Tip-off), not here. This avoids leaving
+  // 25 unused card rows in the DB when a lobby is abandoned before play.
 
   redirect(`/room/${code}`);
 }
@@ -309,7 +297,7 @@ export async function startGame(roomId: string): Promise<void> {
 
   const { data: room, error: roomErr } = await db
     .from("rooms")
-    .select("id, status, starting_team, turn_duration_seconds")
+    .select("id, status, starting_team, sport, turn_duration_seconds")
     .eq("id", roomId)
     .single();
   if (roomErr || !room) throw new Error("Room not found");
@@ -328,6 +316,28 @@ export async function startGame(roomId: string): Promise<void> {
     if (!hasCoach || !hasPlayer) {
       throw new Error(`${t} needs at least one coach and one player`);
     }
+  }
+
+  // Seed cards FIRST so they exist before clients see status="playing" and
+  // try to render the board. Idempotent: if cards already exist (e.g. user
+  // double-clicked Tip-off), skip the insert — the second status update is
+  // a no-op anyway.
+  const { count: existingCardCount } = await db
+    .from("cards")
+    .select("id", { count: "exact", head: true })
+    .eq("room_id", roomId);
+  if ((existingCardCount ?? 0) === 0) {
+    const seeds = dealBoard(room.sport as Sport, room.starting_team as Team);
+    const { error: cardsError } = await db.from("cards").insert(
+      seeds.map((s) => ({
+        room_id: roomId,
+        position: s.position,
+        player_name: s.player_name,
+        card_type: s.card_type,
+      }))
+    );
+    if (cardsError)
+      throw new Error(`Failed to seed board: ${cardsError.message}`);
   }
 
   const { error } = await db
@@ -631,7 +641,7 @@ export async function backToLobby(roomId: string): Promise<void> {
 
   const { data: room, error: roomErr } = await db
     .from("rooms")
-    .select("id, status, sport")
+    .select("id, status")
     .eq("id", roomId)
     .single();
   if (roomErr || !room) throw new Error("Room not found");
@@ -640,10 +650,10 @@ export async function backToLobby(roomId: string): Promise<void> {
 
   // Flip the room to "lobby" FIRST so connected clients immediately swap
   // their UI from the game view to the Lobby component. After this, the
-  // board isn't rendered anywhere, so the card delete+reseed below is
-  // invisible to users. (Previous order ran the room update LAST, which
-  // caused clients to briefly see the next game's freshly dealt cards
-  // before being redirected to the lobby.)
+  // board isn't rendered anywhere, so the card delete below is invisible.
+  // Cards are re-seeded by startGame when Tip-off is clicked — we don't
+  // create them here, so an abandoned lobby has no card rows hanging
+  // around waiting for cron cleanup.
   const startingTeam: Team = Math.random() < 0.5 ? "red" : "blue";
   const { error: roomUpdateErr } = await db
     .from("rooms")
@@ -664,17 +674,6 @@ export async function backToLobby(roomId: string): Promise<void> {
   await db.from("clues").delete().eq("room_id", roomId);
   await db.from("card_tags").delete().eq("room_id", roomId);
   await db.from("cards").delete().eq("room_id", roomId);
-
-  const seeds = dealBoard(room.sport as Sport, startingTeam);
-  const { error: cardsError } = await db.from("cards").insert(
-    seeds.map((s) => ({
-      room_id: roomId,
-      position: s.position,
-      player_name: s.player_name,
-      card_type: s.card_type,
-    }))
-  );
-  if (cardsError) throw new Error(`Failed to seed board: ${cardsError.message}`);
 }
 
 /**
