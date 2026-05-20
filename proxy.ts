@@ -1,15 +1,19 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 /**
- * Edge middleware — broad per-IP POST rate limit. Catches obvious flood
- * attacks (a script hammering the site) before they hit the server actions.
+ * Edge proxy — broad per-IP POST rate limit. Catches obvious flood attacks
+ * (a script hammering the site) before they hit the server actions.
  * Specific per-action limits (e.g. createRoom) live in actions.ts on top of
- * this, since middleware can't differentiate which server action is being
+ * this, since the proxy can't differentiate which server action is being
  * invoked (they all POST to the same route).
  *
  * 60 POSTs/minute is loose enough that real play during an active game
  * (clicking cards, tagging, ending turns) won't trip it but a spam script
  * will.
+ *
+ * Next 16 renamed the `middleware` file convention to `proxy`. The Edge
+ * runtime and Map semantics are unchanged — the in-memory bucket is still
+ * per-instance, not shared across edge regions.
  */
 const buckets = new Map<string, { count: number; resetAt: number }>();
 const WINDOW_MS = 60_000;
@@ -21,7 +25,7 @@ function getIp(req: NextRequest): string {
   return req.headers.get("x-real-ip") ?? "unknown";
 }
 
-export function middleware(req: NextRequest) {
+export function proxy(req: NextRequest) {
   if (req.method !== "POST") return NextResponse.next();
 
   const ip = getIp(req);
