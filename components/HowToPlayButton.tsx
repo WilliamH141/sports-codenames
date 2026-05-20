@@ -101,7 +101,7 @@ export default function HowToPlayButton() {
             <button
               type="button"
               onClick={() => setOpen(false)}
-              className="self-stretch sm:self-end px-4 py-2 font-[family-name:var(--font-display)] text-xs font-black tracking-[0.22em] uppercase border border-border bg-bg-deep/40 text-ink hover:bg-bg-deep hover:border-team-gold hover:text-team-gold transition-colors cursor-pointer mt-2"
+              className="sticker-btn self-stretch sm:self-end px-4 py-2 font-[family-name:var(--font-display)] text-xs font-black tracking-[0.22em] uppercase border-border bg-surface text-ink enabled:hover:border-team-gold enabled:hover:text-team-gold cursor-pointer mt-2"
             >
               Got it
             </button>

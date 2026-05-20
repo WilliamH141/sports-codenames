@@ -85,12 +85,12 @@ export default function Home() {
               autoCapitalize="characters"
               autoComplete="off"
               spellCheck={false}
-              className="card-surface flex-1 px-4 py-4 font-[family-name:var(--font-display)] font-black text-3xl sm:text-4xl tracking-[0.45em] text-center text-ink uppercase placeholder:text-dim/50 outline-none transition-shadow caret-team-blue focus:[box-shadow:inset_0_1px_0_rgba(255,255,255,0.06),inset_0_0_0_2px_var(--color-team-blue),0_0_36px_-8px_rgba(77,142,255,0.55)]"
+              className="card-surface flex-1 px-4 py-4 font-[family-name:var(--font-display)] font-black text-3xl sm:text-4xl tracking-[0.45em] text-center text-ink uppercase placeholder:text-dim/50 outline-none transition-shadow caret-team-gold focus:border-team-gold focus:[box-shadow:5px_5px_0_0_#000,0_0_28px_-6px_rgba(253,185,39,0.55)]"
               required
             />
             <button
               type="submit"
-              className="card-surface px-5 font-[family-name:var(--font-display)] tracking-[0.22em] text-sm font-black uppercase text-muted hover:text-team-blue transition-all cursor-pointer hover:[box-shadow:inset_0_1px_0_rgba(255,255,255,0.06),inset_0_0_0_2px_var(--color-team-blue),0_14px_38px_-22px_rgba(0,0,0,0.8)]"
+              className="cta-blue px-5 font-[family-name:var(--font-display)] tracking-[0.22em] text-sm font-black uppercase cursor-pointer"
               aria-label="Join room"
             >
               Join →
