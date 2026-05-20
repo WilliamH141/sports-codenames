@@ -100,6 +100,7 @@ export default function Board({
             key={card.id}
             card={card}
             showKey={showKey}
+            gameOver={gameOver}
             clickable={canClick}
             tags={cardTags}
             taggable={canTag}

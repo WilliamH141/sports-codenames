@@ -6,6 +6,9 @@ import type { CardTagInfo } from "./Board";
 type Props = {
   card: CardModel;
   showKey: boolean; // coach view OR game over
+  /** True when the game has finished. Triggers the cascade-flip reveal of
+      every card that wasn't manually flipped during play. */
+  gameOver: boolean;
   clickable: boolean;
   /** True when the viewer can place/remove their own tag on unrevealed cards. */
   taggable: boolean;
@@ -48,6 +51,7 @@ function splitName(full: string): { first: string; last: string } {
 export default function Card({
   card,
   showKey,
+  gameOver,
   clickable,
   taggable,
   myTag,
@@ -60,6 +64,14 @@ export default function Card({
   const canFlag = taggable && !card.revealed;
   const frontTileClass = showKey ? `tile ${KEY_CLASS[card.card_type]}` : "tile";
   const backTileClass = `tile ${REVEALED_CLASS[card.card_type]}`;
+  // Flip when the card was revealed during play OR when the game ended (in
+  // which case we auto-reveal every remaining card). Cards that flip from
+  // game-end get a staggered transition-delay so the board reveals as a
+  // left-to-right cascade — feels like a final scoreboard reveal instead of
+  // an instant state change.
+  const flipped = card.revealed || gameOver;
+  const flipDelayMs =
+    gameOver && !card.revealed ? 80 + card.position * 50 : 0;
   const teamColor = tagTeam === "red" ? "bg-team-red" : "bg-team-blue";
   const teamText = tagTeam === "red" ? "text-team-red" : "text-team-blue";
   // Modifier class on the tap target so hover styles can outline the card
@@ -84,7 +96,10 @@ export default function Card({
         onClick={() => onClick?.(card)}
         className={`flipper absolute inset-0 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-team-gold ${canTap ? `flipper-tap cursor-pointer ${tapTeamClass}` : "cursor-default"}`}
       >
-        <div className={`flipper-inner ${card.revealed ? "flipper-flipped" : ""}`}>
+        <div
+          className={`flipper-inner ${flipped ? "flipper-flipped" : ""}`}
+          style={flipDelayMs ? { transitionDelay: `${flipDelayMs}ms` } : undefined}
+        >
           <div className={`face face-front ${frontTileClass}`}>
             <Nameplate name={card.player_name} tag={null} />
           </div>
