@@ -62,6 +62,16 @@ export default function Card({
   const backTileClass = `tile ${REVEALED_CLASS[card.card_type]}`;
   const teamColor = tagTeam === "red" ? "bg-team-red" : "bg-team-blue";
   const teamText = tagTeam === "red" ? "text-team-red" : "text-team-blue";
+  // Modifier class on the tap target so hover styles can outline the card
+  // in the viewer's team color — reinforces "this is your team's pick"
+  // at the moment of commitment.
+  const tapTeamClass = canTap
+    ? tagTeam === "red"
+      ? "tap-red"
+      : tagTeam === "blue"
+        ? "tap-blue"
+        : ""
+    : "";
 
   return (
     <div
@@ -72,7 +82,7 @@ export default function Card({
         type="button"
         disabled={!canTap}
         onClick={() => onClick?.(card)}
-        className={`flipper absolute inset-0 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-team-gold ${canTap ? "flipper-tap cursor-pointer" : "cursor-default"}`}
+        className={`flipper absolute inset-0 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-team-gold ${canTap ? `flipper-tap cursor-pointer ${tapTeamClass}` : "cursor-default"}`}
       >
         <div className={`flipper-inner ${card.revealed ? "flipper-flipped" : ""}`}>
           <div className={`face face-front ${frontTileClass}`}>

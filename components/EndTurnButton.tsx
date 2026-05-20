@@ -25,11 +25,10 @@ export default function EndTurnButton({ roomId, playerId, team }: Props) {
           }
         })
       }
-      className={`${team === "red" ? "ghost-red" : "ghost-blue"} shrink-0 px-4 sm:px-5 rounded-md font-[family-name:var(--font-display)] font-black tracking-[0.2em] text-xs uppercase cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-2`}
+      className={`${team === "red" ? "cta-red" : "cta-blue"} shrink-0 px-4 sm:px-5 text-white font-[family-name:var(--font-display)] font-black tracking-[0.2em] text-xs uppercase cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed`}
       aria-label="End turn"
     >
-      <span className="text-lg leading-none">✓</span>
-      <span className="hidden sm:inline">End turn</span>
+      {pending ? "..." : "End →"}
     </button>
   );
 }

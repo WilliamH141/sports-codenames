@@ -499,10 +499,10 @@ function ControlsCard({
                 type="button"
                 disabled={pending}
                 onClick={() => onSetShotClock(opt.value)}
-                className={`py-2 px-2 font-[family-name:var(--font-display)] text-xs font-black tracking-[0.18em] uppercase border transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed ${
+                className={`sticker-btn py-2 px-2 font-[family-name:var(--font-display)] text-xs font-black tracking-[0.18em] uppercase cursor-pointer disabled:cursor-not-allowed ${
                   selected
-                    ? "border-team-gold text-team-gold bg-team-gold/10"
-                    : "border-border bg-bg-deep/40 text-ink hover:bg-bg-deep hover:border-border-hi"
+                    ? "border-team-gold text-team-gold bg-team-gold/15"
+                    : "border-border bg-surface text-ink hover:border-border-hi"
                 }`}
               >
                 {opt.label}
@@ -520,7 +520,7 @@ function ControlsCard({
           type="button"
           disabled={pending || disableRandomize}
           onClick={onRandomize}
-          className="py-2 px-2 font-[family-name:var(--font-display)] text-[11px] font-black tracking-[0.18em] uppercase border border-border bg-bg-deep/40 text-ink hover:bg-bg-deep hover:border-team-gold hover:text-team-gold transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-1.5"
+          className="sticker-btn py-2 px-2 font-[family-name:var(--font-display)] text-[11px] font-black tracking-[0.18em] uppercase border-border bg-surface text-ink enabled:hover:border-team-gold enabled:hover:text-team-gold cursor-pointer disabled:cursor-not-allowed flex items-center justify-center gap-1.5"
         >
           <span className="text-sm opacity-70">↻</span>
           <span>Randomize teams</span>
@@ -529,7 +529,7 @@ function ControlsCard({
           type="button"
           disabled={pending || disableReset}
           onClick={onReset}
-          className="py-2 px-2 font-[family-name:var(--font-display)] text-[11px] font-black tracking-[0.18em] uppercase border border-border bg-bg-deep/40 text-ink hover:bg-bg-deep hover:border-team-red hover:text-team-red transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-1.5"
+          className="sticker-btn py-2 px-2 font-[family-name:var(--font-display)] text-[11px] font-black tracking-[0.18em] uppercase border-border bg-surface text-ink enabled:hover:border-team-red enabled:hover:text-team-red cursor-pointer disabled:cursor-not-allowed flex items-center justify-center gap-1.5"
         >
           <span className="text-sm opacity-70">⌫</span>
           <span>Reset teams</span>

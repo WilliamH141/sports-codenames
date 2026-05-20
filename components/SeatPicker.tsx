@@ -21,8 +21,8 @@ const TEAM_BAND: Record<Team, string> = {
   blue: "bg-team-blue",
 };
 const TEAM_HOVER: Record<Team, string> = {
-  red: "hover:border-team-red",
-  blue: "hover:border-team-blue",
+  red: "enabled:hover:border-team-red enabled:hover:text-team-red",
+  blue: "enabled:hover:border-team-blue enabled:hover:text-team-blue",
 };
 
 export default function SeatPicker({
@@ -102,7 +102,7 @@ export default function SeatPicker({
                     type="button"
                     disabled={pending || coachLocked}
                     onClick={() => take(team, "coach")}
-                    className="flex-1 py-1.5 px-2 rounded font-[family-name:var(--font-display)] text-[10px] font-black tracking-[0.2em] uppercase border border-border bg-bg-deep/40 text-ink hover:bg-bg-deep hover:border-team-gold disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:bg-bg-deep/40 disabled:hover:border-border transition-colors cursor-pointer"
+                    className="sticker-btn flex-1 py-1.5 px-2 rounded font-[family-name:var(--font-display)] text-[10px] font-black tracking-[0.2em] uppercase border-border bg-surface text-ink enabled:hover:border-team-gold enabled:hover:text-team-gold cursor-pointer disabled:cursor-not-allowed"
                   >
                     ★ Coach
                   </button>
@@ -110,7 +110,7 @@ export default function SeatPicker({
                     type="button"
                     disabled={pending}
                     onClick={() => take(team, "player")}
-                    className={`flex-1 py-1.5 px-2 rounded font-[family-name:var(--font-display)] text-[10px] font-black tracking-[0.2em] uppercase border border-border bg-bg-deep/40 text-ink hover:bg-bg-deep ${TEAM_HOVER[team]} disabled:opacity-30 transition-colors cursor-pointer`}
+                    className={`sticker-btn flex-1 py-1.5 px-2 rounded font-[family-name:var(--font-display)] text-[10px] font-black tracking-[0.2em] uppercase border-border bg-surface text-ink ${TEAM_HOVER[team]} cursor-pointer disabled:cursor-not-allowed`}
                   >
                     ● Player
                   </button>
