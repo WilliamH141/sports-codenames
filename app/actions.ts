@@ -638,24 +638,14 @@ export async function backToLobby(roomId: string): Promise<void> {
   if (room.status !== "finished")
     throw new Error("Can only reset a finished game");
 
-  await db.from("guesses").delete().eq("room_id", roomId);
-  await db.from("clues").delete().eq("room_id", roomId);
-  await db.from("card_tags").delete().eq("room_id", roomId);
-  await db.from("cards").delete().eq("room_id", roomId);
-
+  // Flip the room to "lobby" FIRST so connected clients immediately swap
+  // their UI from the game view to the Lobby component. After this, the
+  // board isn't rendered anywhere, so the card delete+reseed below is
+  // invisible to users. (Previous order ran the room update LAST, which
+  // caused clients to briefly see the next game's freshly dealt cards
+  // before being redirected to the lobby.)
   const startingTeam: Team = Math.random() < 0.5 ? "red" : "blue";
-  const seeds = dealBoard(room.sport as Sport, startingTeam);
-  const { error: cardsError } = await db.from("cards").insert(
-    seeds.map((s) => ({
-      room_id: roomId,
-      position: s.position,
-      player_name: s.player_name,
-      card_type: s.card_type,
-    }))
-  );
-  if (cardsError) throw new Error(`Failed to seed board: ${cardsError.message}`);
-
-  const { error } = await db
+  const { error: roomUpdateErr } = await db
     .from("rooms")
     .update({
       status: "lobby",
@@ -668,7 +658,23 @@ export async function backToLobby(roomId: string): Promise<void> {
       turn_deadline: null,
     })
     .eq("id", roomId);
-  if (error) throw new Error(error.message);
+  if (roomUpdateErr) throw new Error(roomUpdateErr.message);
+
+  await db.from("guesses").delete().eq("room_id", roomId);
+  await db.from("clues").delete().eq("room_id", roomId);
+  await db.from("card_tags").delete().eq("room_id", roomId);
+  await db.from("cards").delete().eq("room_id", roomId);
+
+  const seeds = dealBoard(room.sport as Sport, startingTeam);
+  const { error: cardsError } = await db.from("cards").insert(
+    seeds.map((s) => ({
+      room_id: roomId,
+      position: s.position,
+      player_name: s.player_name,
+      card_type: s.card_type,
+    }))
+  );
+  if (cardsError) throw new Error(`Failed to seed board: ${cardsError.message}`);
 }
 
 /**
