@@ -1,19 +1,44 @@
 "use server";
 
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { getServerSupabase } from "@/lib/supabase/server";
 import { generateRoomCode } from "@/lib/game/codes";
 import { dealBoard } from "@/lib/game/deal";
+import { rateLimit } from "@/lib/ratelimit";
 import { evaluateGuess, otherTeam } from "@/lib/game/rules";
 import type { Card, Role, Sport, Team } from "@/lib/types";
 
 const CODE_RETRY_LIMIT = 8;
 const ALLOWED_TURN_DURATIONS = [60, 90, 120] as const;
 type TurnDurationSeconds = (typeof ALLOWED_TURN_DURATIONS)[number];
+
+const MAX_MEMBERS_PER_ROOM = 20;
+const CREATE_ROOM_PER_IP_PER_HOUR = 10;
+
+async function getClientIp(): Promise<string> {
+  const h = await headers();
+  const fwd = h.get("x-forwarded-for");
+  if (fwd) return fwd.split(",")[0]!.trim();
+  return h.get("x-real-ip") ?? "unknown";
+}
 const nextDeadline = (seconds: number | null): string | null =>
   seconds == null ? null : new Date(Date.now() + seconds * 1000).toISOString();
 
 export async function createRoom(sport: Sport = "nba"): Promise<never> {
+  // Per-IP cap on new rooms. Each room inserts ~26 rows (1 room + 25 cards),
+  // so a single bad actor could fill the DB quickly without this.
+  const ip = await getClientIp();
+  const limit = rateLimit(
+    `createRoom:${ip}`,
+    CREATE_ROOM_PER_IP_PER_HOUR,
+    60 * 60 * 1000
+  );
+  if (!limit.allowed) {
+    const mins = Math.ceil(limit.retryAfterMs / 60000);
+    throw new Error(`Too many rooms created. Try again in ${mins} min.`);
+  }
+
   const db = getServerSupabase();
   const startingTeam: Team = Math.random() < 0.5 ? "red" : "blue";
 
@@ -77,6 +102,27 @@ export async function joinRoom(input: {
     .eq("code", input.code.toUpperCase())
     .single();
   if (roomErr || !room) throw new Error("Room not found");
+
+  // Member cap — only enforced when this is a new join (not a re-join with the
+  // same playerId, which the upsert will dedupe). Count current members; if
+  // we'd exceed the cap AND this player isn't already in the room, reject.
+  const { data: existingMember } = await db
+    .from("members")
+    .select("id")
+    .eq("room_id", room.id)
+    .eq("id", input.playerId)
+    .maybeSingle();
+  if (!existingMember) {
+    const { count } = await db
+      .from("members")
+      .select("id", { count: "exact", head: true })
+      .eq("room_id", room.id);
+    if ((count ?? 0) >= MAX_MEMBERS_PER_ROOM) {
+      throw new Error(
+        `Room is full (max ${MAX_MEMBERS_PER_ROOM} players).`
+      );
+    }
+  }
 
   const { error } = await db.from("members").upsert(
     {
