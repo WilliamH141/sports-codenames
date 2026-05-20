@@ -1,21 +1,22 @@
 @import "tailwindcss";
 
 /* ─── design tokens ────────────────────────────────────────────────
-   Warm navy base. Vivid team colors. Lakers-gold accent.
-   The aesthetic is NBA 2K main menu / ESPN late night chrome —
-   premium, lifted surfaces with subtle glossy highlights.
+   Poeltl-inspired dark redesign. Sticker buttons, flat surfaces,
+   crisp borders, offset shadows that animate on hover. Same warm
+   navy palette so team identity still bleeds through, but the
+   chrome is now architectural and minimal instead of glossy 2K.
    ─────────────────────────────────────────────────────────────── */
 @theme inline {
-  --color-bg: #0e1622;
-  --color-bg-deep: #080d15;
-  --color-surface: #1a2433;
-  --color-surface-2: #243044;
-  --color-surface-3: #2e3a52;
-  --color-border: #2e3a52;
-  --color-border-hi: #3d4b66;
-  --color-ink: #f7f7f5;
-  --color-muted: #a8b3c4;
-  --color-dim: #6b7691;
+  --color-bg: #0a0f1c;
+  --color-bg-deep: #03060d;
+  --color-surface: #1a2438;
+  --color-surface-2: #243049;
+  --color-surface-3: #31415f;
+  --color-border: #3d4f70;
+  --color-border-hi: #607595;
+  --color-ink: #f4f5f7;
+  --color-muted: #9aa6ba;
+  --color-dim: #5e6a82;
 
   --color-team-red: #ff4655;
   --color-team-red-deep: #c12a37;
@@ -26,6 +27,10 @@
 
   --font-display: var(--font-big-shoulders);
   --font-sans: var(--font-geist-sans);
+
+  /* Animation curve used everywhere — Poeltl's springy ease-out. */
+  --ease-pop: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-smooth: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 /* ─── base ─────────────────────────────────────────────────────── */
@@ -38,9 +43,12 @@ html {
 body {
   font-family: var(--font-geist-sans), system-ui, sans-serif;
   background-color: var(--color-bg);
+  /* Subtle dot grid — barely visible, just enough texture to keep
+     large flat areas from feeling dead. Poeltl uses a paper-grain
+     dot pattern; we ape it on dark. */
   background-image:
-    radial-gradient(ellipse 90% 55% at 50% -15%, rgba(255, 70, 85, 0.10), transparent 65%),
-    radial-gradient(ellipse 90% 55% at 50% 115%, rgba(77, 142, 255, 0.10), transparent 65%);
+    radial-gradient(circle at 1px 1px, rgba(255, 255, 255, 0.025) 1px, transparent 0);
+  background-size: 22px 22px;
   background-attachment: fixed;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
@@ -53,27 +61,32 @@ body {
 
 /* ─── surfaces ─────────────────────────────────────────────────── */
 
-/* Premium card — subtle top gloss, inset 1px border, soft drop shadow. */
+/* Flat sticker card — 1px crisp border, hard offset shadow.
+   The offset shadow is the signature Poeltl move: a solid color
+   block sitting 4px down-right, no blur. Reads as "lifted off the
+   page" without any gradient. */
 .card-surface {
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.045) 0%, rgba(255, 255, 255, 0) 55%),
-    var(--color-surface);
+  background: var(--color-surface);
+  border: 2px solid var(--color-border-hi);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.06),
-    inset 0 0 0 1px var(--color-border),
-    0 14px 38px -22px rgba(0, 0, 0, 0.8);
+    5px 5px 0 0 #000,
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.08);
+  transition:
+    transform 180ms var(--ease-smooth),
+    box-shadow 180ms var(--ease-smooth),
+    border-color 180ms ease;
 }
 
 .card-surface-focus {
+  border-color: var(--color-team-blue);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.06),
-    inset 0 0 0 2px var(--color-team-blue),
-    0 0 36px -8px rgba(77, 142, 255, 0.55);
+    5px 5px 0 0 #000,
+    0 0 24px -6px rgba(77, 142, 255, 0.55);
 }
 
 /* ─── headline rule (red | gold | blue) ────────────────────────── */
 .vs-rule {
-  height: 5px;
+  height: 4px;
   border-radius: 2px;
   background: linear-gradient(
     90deg,
@@ -90,223 +103,255 @@ body {
   );
 }
 
-/* ─── CTA: red 2K-card button ──────────────────────────────────── */
+/* ─── CTA: red sticker button ──────────────────────────────────────
+   The Poeltl signature: flat color fill, 2px hard border, 6px solid
+   offset shadow. Hover pushes the button toward the shadow (button
+   moves +2/+2, shadow shrinks to 4/4) — net effect is a tactile
+   "settling" feel. Press flattens shadow to 0 (button is pressed
+   into the surface). All flat, no gradients. */
 .cta-red {
   position: relative;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.18) 0%, rgba(255, 255, 255, 0) 45%),
-    linear-gradient(180deg, var(--color-team-red) 0%, var(--color-team-red-deep) 100%);
+  background: var(--color-team-red);
+  color: #fff;
+  border: 2px solid #0a0f1a;
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.30),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.25),
-    0 16px 32px -14px rgba(255, 70, 85, 0.65);
-  border-top: 2px solid var(--color-team-gold);
-  transition: transform 140ms cubic-bezier(0.22, 1, 0.36, 1),
-              box-shadow 140ms ease;
-  overflow: hidden;
-}
-.cta-red::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(
-    115deg,
-    transparent 0%,
-    transparent 38%,
-    rgba(255, 255, 255, 0.22) 50%,
-    transparent 62%,
-    transparent 100%
-  );
-  transform: translateX(-110%);
-  pointer-events: none;
+    6px 6px 0 0 #0a0f1a,
+    inset 0 -3px 0 0 rgba(0, 0, 0, 0.18);
+  transition:
+    transform 160ms var(--ease-pop),
+    box-shadow 160ms var(--ease-smooth),
+    background-color 160ms ease;
 }
 .cta-red:hover {
-  transform: translateY(-1px);
+  background: #ff5764;
+  transform: translate(2px, 2px);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.35),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.25),
-    0 22px 42px -14px rgba(255, 70, 85, 0.80);
-}
-.cta-red:hover::after {
-  animation: shine 900ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    4px 4px 0 0 #0a0f1a,
+    inset 0 -3px 0 0 rgba(0, 0, 0, 0.18);
 }
 .cta-red:active {
-  transform: translateY(0) scale(0.99);
+  transform: translate(6px, 6px);
   box-shadow:
-    inset 0 2px 6px rgba(0, 0, 0, 0.35),
-    0 8px 18px -12px rgba(255, 70, 85, 0.55);
+    0 0 0 0 #0a0f1a,
+    inset 0 3px 0 0 rgba(0, 0, 0, 0.22);
 }
-
-@keyframes shine {
-  to { transform: translateX(110%); }
+.cta-red:disabled {
+  background: var(--color-team-red-deep);
+  transform: none;
+  box-shadow: 6px 6px 0 0 #0a0f1a;
 }
 
 /* ─── CTA: blue mirror ─────────────────────────────────────────── */
 .cta-blue {
   position: relative;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.18) 0%, rgba(255, 255, 255, 0) 45%),
-    linear-gradient(180deg, var(--color-team-blue) 0%, var(--color-team-blue-deep) 100%);
+  background: var(--color-team-blue);
+  color: #fff;
+  border: 2px solid #0a0f1a;
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.30),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.25),
-    0 16px 32px -14px rgba(77, 142, 255, 0.65);
-  border-top: 2px solid var(--color-team-gold);
-  transition: transform 140ms cubic-bezier(0.22, 1, 0.36, 1), box-shadow 140ms ease;
+    6px 6px 0 0 #0a0f1a,
+    inset 0 -3px 0 0 rgba(0, 0, 0, 0.18);
+  transition:
+    transform 160ms var(--ease-pop),
+    box-shadow 160ms var(--ease-smooth),
+    background-color 160ms ease;
 }
 .cta-blue:hover {
-  transform: translateY(-1px);
+  background: #5e9aff;
+  transform: translate(2px, 2px);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.35),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.25),
-    0 22px 42px -14px rgba(77, 142, 255, 0.80);
+    4px 4px 0 0 #0a0f1a,
+    inset 0 -3px 0 0 rgba(0, 0, 0, 0.18);
 }
 .cta-blue:active {
-  transform: translateY(0) scale(0.99);
+  transform: translate(6px, 6px);
+  box-shadow:
+    0 0 0 0 #0a0f1a,
+    inset 0 3px 0 0 rgba(0, 0, 0, 0.22);
 }
 
-/* ─── ghost button (per-team) ──────────────────────────────────── */
+/* ─── generic sticker button base ──────────────────────────────────
+   Paint this on any button to get the sticker hover/press feel.
+   Caller supplies background-color, border-color, text-color via
+   Tailwind utilities. The shadow + transform behavior comes free. */
+.sticker-btn {
+  border-width: 2px;
+  border-style: solid;
+  box-shadow: 3px 3px 0 0 #000;
+  transition:
+    transform 160ms var(--ease-pop),
+    box-shadow 160ms var(--ease-smooth),
+    background-color 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease;
+}
+.sticker-btn:hover:not(:disabled) {
+  transform: translate(1px, 1px);
+  box-shadow: 2px 2px 0 0 #000;
+}
+.sticker-btn:active:not(:disabled) {
+  transform: translate(3px, 3px);
+  box-shadow: 0 0 0 0 #000;
+}
+.sticker-btn:disabled {
+  transform: none;
+  box-shadow: 3px 3px 0 0 #000;
+  opacity: 0.4;
+}
+
+/* ─── ghost button (per-team) ──────────────────────────────────────
+   Outlined sticker: surface fill, team-color border + text, same
+   offset shadow as cards. Hover fills in with a tinted team color. */
 .ghost-red,
 .ghost-blue {
-  background: var(--color-surface);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.04),
-    inset 0 0 0 1px var(--color-border);
-  transition: transform 140ms ease, box-shadow 140ms ease, color 140ms ease;
+  /* Pre-tinted with the team color so the button has presence even
+     before hover — feels like a real secondary action next to the
+     filled primary CTAs. Bumped shadow to 5px so it matches card-surface
+     and doesn't look like an afterthought beside the Send sticker. */
+  border-width: 2px;
+  border-style: solid;
+  box-shadow: 5px 5px 0 0 #000;
+  transition:
+    transform 160ms var(--ease-pop),
+    box-shadow 160ms var(--ease-smooth),
+    background-color 160ms ease,
+    border-color 160ms ease,
+    color 160ms ease;
 }
-.ghost-red       { color: var(--color-team-red); }
-.ghost-blue      { color: var(--color-team-blue); }
+.ghost-red {
+  background: rgba(255, 70, 85, 0.10);
+  border-color: var(--color-team-red);
+  color: var(--color-team-red);
+}
+.ghost-blue {
+  background: rgba(77, 142, 255, 0.12);
+  border-color: var(--color-team-blue);
+  color: var(--color-team-blue);
+}
+
 .ghost-red:hover {
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.06),
-    inset 0 0 0 1px var(--color-team-red),
-    0 12px 28px -16px rgba(255, 70, 85, 0.55);
-  transform: translateY(-1px);
+  background: rgba(255, 70, 85, 0.22);
+  transform: translate(2px, 2px);
+  box-shadow: 3px 3px 0 0 #000;
 }
 .ghost-blue:hover {
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.06),
-    inset 0 0 0 1px var(--color-team-blue),
-    0 12px 28px -16px rgba(77, 142, 255, 0.55);
-  transform: translateY(-1px);
+  background: rgba(77, 142, 255, 0.24);
+  transform: translate(2px, 2px);
+  box-shadow: 3px 3px 0 0 #000;
+}
+.ghost-red:active,
+.ghost-blue:active {
+  transform: translate(5px, 5px);
+  box-shadow: 0 0 0 0 #000;
 }
 
-/* ─── board tiles ──────────────────────────────────────────────── */
+/* ─── board tiles ──────────────────────────────────────────────────
+   Tiles share the sticker DNA but at a smaller scale — 2px shadow
+   instead of 6, so the grid still reads as a unit. Hover lifts the
+   tile *away* from the shadow (opposite direction from buttons) so
+   that taps feel like grabbing a card off the table. */
 
-/* Unrevealed front (default surface for guessers). */
 .tile {
   position: relative;
   overflow: hidden;
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.045) 0%, rgba(255, 255, 255, 0) 55%),
-    var(--color-surface);
+  background: var(--color-surface);
   color: var(--color-ink);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.05),
-    inset 0 0 0 1px var(--color-border),
-    0 6px 16px -10px rgba(0, 0, 0, 0.7);
+  border: 1px solid var(--color-border);
+  box-shadow: 2px 2px 0 0 #000;
   transition:
-    transform 140ms cubic-bezier(0.22, 1, 0.36, 1),
-    box-shadow 200ms ease,
-    background 320ms ease;
+    transform 180ms var(--ease-pop),
+    box-shadow 200ms var(--ease-smooth),
+    background 320ms ease,
+    border-color 200ms ease;
 }
 .tile.clickable:hover {
-  transform: translateY(-2px);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.08),
-    inset 0 0 0 1px var(--color-border-hi),
-    0 14px 28px -12px rgba(0, 0, 0, 0.8);
+  transform: translate(-1px, -1px);
+  border-color: var(--color-border-hi);
+  box-shadow: 4px 4px 0 0 #000;
 }
 .tile.clickable:active {
-  transform: translateY(0) scale(0.97);
-  box-shadow:
-    inset 0 2px 6px rgba(0, 0, 0, 0.4);
+  transform: translate(2px, 2px);
+  box-shadow: 0 0 0 0 #000;
 }
 
-/* Spymaster key tints (unrevealed). */
+/* Spymaster key tints (unrevealed). Flat fills — no gradient — with
+   a left edge accent stripe to mark team. The stripe sits in the
+   border area so the tile's main face stays calm. */
 .tile-key-red {
-  background:
-    linear-gradient(180deg, rgba(255, 70, 85, 0.34) 0%, rgba(255, 70, 85, 0.16) 100%),
-    var(--color-surface);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.08),
-    inset 0 0 0 1.5px rgba(255, 70, 85, 0.75);
-  border-top: 2px solid var(--color-team-red);
+  /* Cranked from 18% → 38% so it actually reads as red on a navy bg,
+     not "navy plus a hint." Still desaturated vs the revealed state
+     (which is full solid red) so spymaster can tell unrevealed vs
+     revealed at a glance. */
+  background: rgba(255, 70, 85, 0.38);
+  border: 1px solid rgba(255, 70, 85, 0.70);
+  border-top: 4px solid var(--color-team-red);
+  box-shadow: 2px 2px 0 0 rgba(0, 0, 0, 0.5);
 }
 .tile-key-blue {
-  /* Blue needs more punch than red: the navy base already leans blue, so a
-     softer tint gets eaten by the bg. Crank tint + inner stroke alpha. */
-  background:
-    linear-gradient(180deg, rgba(77, 142, 255, 0.36) 0%, rgba(77, 142, 255, 0.18) 100%),
-    var(--color-surface);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.08),
-    inset 0 0 0 1.5px rgba(77, 142, 255, 0.8);
-  border-top: 2px solid var(--color-team-blue);
+  background: rgba(77, 142, 255, 0.42);
+  border: 1px solid rgba(77, 142, 255, 0.75);
+  border-top: 4px solid var(--color-team-blue);
+  box-shadow: 2px 2px 0 0 rgba(0, 0, 0, 0.5);
 }
 .tile-key-neutral {
+  /* No top stripe — neutral IS the visual baseline. Letting red/blue
+     stripes be the only top edges in the spymaster view makes them
+     pop way harder. The dull fill alone says "not yours". */
   background: var(--color-surface-2);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.05),
-    inset 0 0 0 1px var(--color-border-hi);
+  border: 1px solid var(--color-border-hi);
+  box-shadow: 2px 2px 0 0 #000;
 }
 .tile-key-assassin {
-  background:
-    linear-gradient(180deg, rgba(255, 70, 85, 0.10) 0%, rgba(0, 0, 0, 0.45) 100%),
-    var(--color-bg-deep);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 70, 85, 0.35),
-    inset 0 0 0 1.5px rgba(255, 70, 85, 0.55);
+  /* Flat black-ish fill with a thick red border. Reads as "do not
+     touch" without the inner vignette weirdness. */
+  background: #0a0d14;
+  border: 2px solid var(--color-team-red);
+  box-shadow: 2px 2px 0 0 #000;
 }
 
-/* Revealed states (fully colored). */
+/* Revealed states — full color fill, no shadow (revealed = settled
+   into the board, no longer lifted). The dropped shadow becoming
+   absent is itself the "this is now resolved" signal. */
 .tile-revealed-red {
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.15) 0%, rgba(255, 255, 255, 0) 35%),
-    linear-gradient(180deg, var(--color-team-red) 0%, var(--color-team-red-deep) 100%);
+  background: var(--color-team-red);
+  border: 1px solid #0a0f1a;
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.3),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.25),
-    0 8px 22px -12px rgba(255, 70, 85, 0.55);
+    0 0 0 0 transparent,
+    inset 0 -2px 0 0 rgba(0, 0, 0, 0.22);
   color: #fff;
 }
 .tile-revealed-blue {
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.15) 0%, rgba(255, 255, 255, 0) 35%),
-    linear-gradient(180deg, var(--color-team-blue) 0%, var(--color-team-blue-deep) 100%);
+  background: var(--color-team-blue);
+  border: 1px solid #0a0f1a;
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.3),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.25),
-    0 8px 22px -12px rgba(77, 142, 255, 0.55);
+    0 0 0 0 transparent,
+    inset 0 -2px 0 0 rgba(0, 0, 0, 0.22);
   color: #fff;
 }
 .tile-revealed-neutral {
-  /* "Voided" treatment — warm gray (off the navy palette) plus a diagonal
-     hatch overlay that reads as crossed-out / out of play. The hatch is
-     unique to this state; team reveals and key tints stay clean. */
+  /* "Voided / out of play" — bleached desaturated fill plus a
+     high-contrast diagonal hatch (the "crossed out" pattern).
+     Lowered opacity drops it back from the active grid. */
   background:
     repeating-linear-gradient(
       135deg,
       transparent 0,
-      transparent 6px,
-      rgba(0, 0, 0, 0.14) 6px,
-      rgba(0, 0, 0, 0.14) 7px
+      transparent 7px,
+      rgba(0, 0, 0, 0.55) 7px,
+      rgba(0, 0, 0, 0.55) 9px
     ),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.02) 0%, rgba(255, 255, 255, 0) 50%),
-    #34343a;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.04),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.08);
-  color: rgba(255, 255, 255, 0.5);
-  opacity: 0.55;
+    #4d525e;
+  border: 1px solid #2a2e38;
+  box-shadow: 0 0 0 0 transparent;
+  color: rgba(255, 255, 255, 0.4);
+  opacity: 0.5;
 }
 .tile-revealed-assassin {
-  background:
-    linear-gradient(180deg, rgba(255, 70, 85, 0.20) 0%, rgba(0, 0, 0, 0.6) 60%),
-    #000;
+  background: #000;
+  border: 2px solid var(--color-team-red);
   box-shadow:
-    inset 0 0 0 2px var(--color-team-red),
-    0 0 40px -8px rgba(255, 70, 85, 0.7);
+    0 0 0 0 transparent,
+    0 0 32px -4px rgba(255, 70, 85, 0.7),
+    inset 0 0 24px -4px rgba(255, 70, 85, 0.35);
   color: var(--color-team-red);
 }
 
@@ -316,7 +361,7 @@ body {
   35%  { transform: scale(1.06); }
   100% { transform: scale(1); }
 }
-.tile-just-revealed { animation: tile-pop 380ms cubic-bezier(0.22, 1, 0.36, 1); }
+.tile-just-revealed { animation: tile-pop 380ms var(--ease-pop); }
 
 /* Cascading board entrance — wave from top-left to bottom-right. */
 @keyframes tile-rise {
@@ -325,16 +370,13 @@ body {
 }
 .tile-enter {
   opacity: 0;
-  animation: tile-rise 500ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  animation: tile-rise 500ms var(--ease-smooth) forwards;
 }
 
 /* ─── card flip system ─────────────────────────────────────────── */
-/* The <button> is both the click target and the perspective container.
-   Safari needs three things or this breaks: appearance: none (its
-   default -webkit-appearance: button overrides aspect-ratio and
-   sometimes breaks preserve-3d), explicit -webkit- prefixes for
-   transform-style and backface-visibility, and translate3d on each
-   face so they live in distinct z-planes. */
+/* Safari needs three things or this breaks: appearance: none,
+   explicit -webkit- prefixes for transform-style and
+   backface-visibility, and translate3d on each face. */
 .flipper {
   appearance: none;
   -webkit-appearance: none;
@@ -379,44 +421,50 @@ body {
   -webkit-transform: rotateY(180deg) translate3d(0, 0, 0);
 }
 
-/* Subtle hover/press feedback on tappable cards — no transform, since
-   that would fight the 3D rotation. Just a brightness shift. */
-.flipper-tap:hover .face-front { filter: brightness(1.08); }
+/* Hover/press feedback on tappable cards.
+   Transforms would fight the 3D rotation, so we don't translate the
+   button itself. Instead we change the front face's border to the
+   viewer's team color and bump the offset shadow — feels like the
+   card is calling itself out as your pick.
+   Press shifts brightness as the "I committed" feedback right before
+   the flip animation takes over. */
+.flipper-tap.tap-red:hover .face-front {
+  border-color: var(--color-team-red) !important;
+  box-shadow:
+    0 0 0 1px var(--color-team-red),
+    4px 4px 0 0 #000 !important;
+}
+.flipper-tap.tap-blue:hover .face-front {
+  border-color: var(--color-team-blue) !important;
+  box-shadow:
+    0 0 0 1px var(--color-team-blue),
+    4px 4px 0 0 #000 !important;
+}
 .flipper-tap:active .face-front {
-  filter: brightness(0.94);
+  filter: brightness(0.92);
   transition: filter 80ms ease;
 }
 
 /* ─── turn pill / clue bar ─────────────────────────────────────── */
 .bar-red {
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0) 50%),
-    linear-gradient(90deg, rgba(255, 70, 85, 0.2) 0%, rgba(255, 70, 85, 0.08) 100%),
-    var(--color-surface);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.06),
-    inset 0 0 0 1px rgba(255, 70, 85, 0.4);
-  border-top: 2px solid var(--color-team-red);
+  background: var(--color-surface);
+  border: 1px solid rgba(255, 70, 85, 0.45);
+  border-left: 4px solid var(--color-team-red);
+  box-shadow: 3px 3px 0 0 #000;
 }
 .bar-blue {
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0) 50%),
-    linear-gradient(90deg, rgba(77, 142, 255, 0.2) 0%, rgba(77, 142, 255, 0.08) 100%),
-    var(--color-surface);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.06),
-    inset 0 0 0 1px rgba(77, 142, 255, 0.4);
-  border-top: 2px solid var(--color-team-blue);
+  background: var(--color-surface);
+  border: 1px solid rgba(77, 142, 255, 0.45);
+  border-left: 4px solid var(--color-team-blue);
+  box-shadow: 3px 3px 0 0 #000;
 }
 
 /* ─── chip ─────────────────────────────────────────────────────── */
 .chip-gold {
   background: var(--color-team-gold);
   color: var(--color-bg);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.45),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.18),
-    0 6px 14px -8px rgba(253, 185, 39, 0.55);
+  border: 1px solid #0a0f1a;
+  box-shadow: 2px 2px 0 0 #0a0f1a;
 }
 
 /* ─── micro motion ─────────────────────────────────────────────── */
@@ -426,7 +474,7 @@ body {
 }
 .stagger > * {
   opacity: 0;
-  animation: fade-up 700ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  animation: fade-up 700ms var(--ease-smooth) forwards;
 }
 .stagger > *:nth-child(1) { animation-delay:  60ms; }
 .stagger > *:nth-child(2) { animation-delay: 180ms; }
