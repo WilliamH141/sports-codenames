@@ -18,6 +18,10 @@ import TeamPanel from "@/components/TeamPanel";
 import TeamPanelRail from "@/components/TeamPanelRail";
 import TurnIndicator from "@/components/TurnIndicator";
 import WinnerBanner from "@/components/WinnerBanner";
+import WinnerOverlay, {
+  type WinCause,
+  type ViewerOutcome,
+} from "@/components/WinnerOverlay";
 
 /** Viewer-contextual prompt for the turn strip. Speaks TO the viewer about
     what they should do (or wait for) right now — not a neutral observer label.
@@ -93,8 +97,13 @@ export default function RoomClient({
   const [revealing, setRevealing] = useState(false);
   const [onlineMemberIds, setOnlineMemberIds] = useState<Set<string>>(new Set());
   const [presenceLoaded, setPresenceLoaded] = useState(false);
+  const [overlayVisible, setOverlayVisible] = useState(false);
   const revealInFlight = useRef(false);
   const joinedRef = useRef(false);
+  // Tracks the previous room.status across renders so we can detect the
+  // exact playing→finished transition. Without this, joining a room that's
+  // already finished would also fire the overlay, which we don't want.
+  const prevStatusRef = useRef<string | null>(null);
 
   const doJoin = useCallback(
     async (id: string, name: string) => {
@@ -228,6 +237,50 @@ export default function RoomClient({
     };
   }, [cards, room.starting_team]);
 
+  // Personal outcome — drives VICTORY / DEFEAT / FINAL across both the
+  // overlay (during celebration) and the WinnerBanner (persistent after).
+  // Unseated viewers (no team) get "spectator" → "Final" — they didn't
+  // pick a side.
+  const viewerOutcome: ViewerOutcome = useMemo(() => {
+    if (!me?.team || !room.winner) return "spectator";
+    return me.team === room.winner ? "won" : "lost";
+  }, [me?.team, room.winner]);
+
+  // Cause of the win — drives the subtitle (BUZZER BEATER / BLOWOUT /
+  // ASSASSIN STRUCK / FINAL WHISTLE). Computed from the final cards+winner
+  // state; recomputes if cards arrive late via realtime.
+  const winCause: WinCause = useMemo(() => {
+    if (room.status !== "finished" || !room.winner) return "final";
+    const assassinDown = cards.some(
+      (c) => c.card_type === "assassin" && c.revealed
+    );
+    if (assassinDown) return "assassin";
+    const loser: Team = room.winner === "red" ? "blue" : "red";
+    const loserLeft = cards.filter(
+      (c) => c.card_type === loser && !c.revealed
+    ).length;
+    if (loserLeft >= 5) return "blowout";
+    if (loserLeft <= 2) return "buzzer";
+    return "final";
+  }, [cards, room.status, room.winner]);
+
+  // Fire the overlay only on the playing→finished transition during this
+  // session. Joining a room that's already finished does NOT trigger it.
+  //
+  // Timing: 700ms after status flips. That's right after the clicked card's
+  // reveal animation finishes (~620ms) and the first few cascade flips have
+  // started. The overlay's headline bounce plays WHILE the rest of the
+  // cascade is still revealing — two motions overlap into one celebration
+  // beat instead of cascade-then-pause-then-overlay.
+  useEffect(() => {
+    const prev = prevStatusRef.current;
+    prevStatusRef.current = room.status;
+    if (prev === "playing" && room.status === "finished") {
+      const t = setTimeout(() => setOverlayVisible(true), 700);
+      return () => clearTimeout(t);
+    }
+  }, [room.status]);
+
   // Single-flight lock: rapid taps used to queue up server actions that ran
   // against stale state and surfaced "wait for a clue" alerts. One reveal at a
   // time; subsequent taps are dropped, not queued.
@@ -302,6 +355,14 @@ export default function RoomClient({
 
   return (
     <main className="min-h-dvh px-3 sm:px-6 py-4 sm:py-6">
+      {overlayVisible && room.winner && (
+        <WinnerOverlay
+          winner={room.winner}
+          cause={winCause}
+          viewerOutcome={viewerOutcome}
+          onDismiss={() => setOverlayVisible(false)}
+        />
+      )}
       <div className="max-w-[1536px] w-full mx-auto flex flex-col gap-3 sm:gap-4 stagger">
         {/* Top bar */}
         <header className="flex items-center justify-between gap-3 pb-2 border-b border-border/60">
@@ -327,7 +388,11 @@ export default function RoomClient({
             winner banner. Sits between navbar and body grid so rails+board
             align at the top of the body. */}
         {gameOver && room.winner ? (
-          <WinnerBanner winner={room.winner} roomId={room.id} />
+          <WinnerBanner
+            winner={room.winner}
+            roomId={room.id}
+            viewerOutcome={viewerOutcome}
+          />
         ) : !gameOver && room.current_team ? (
           (() => {
             const { text, actionable } = turnPrompt({

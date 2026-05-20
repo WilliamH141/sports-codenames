@@ -169,6 +169,37 @@ body {
     inset 0 3px 0 0 rgba(0, 0, 0, 0.22);
 }
 
+/* ─── CTA: gold (neutral primary) ──────────────────────────────────
+   Used when the action is team-agnostic but sits inside a team-colored
+   container (Play Again inside the red/blue WinnerBanner). Gold doesn't
+   take sides; team red/blue would clash with the opposing-team banner. */
+.cta-gold {
+  position: relative;
+  background: var(--color-team-gold);
+  color: var(--color-bg);
+  border: 2px solid #0a0f1a;
+  box-shadow:
+    6px 6px 0 0 #0a0f1a,
+    inset 0 -3px 0 0 rgba(0, 0, 0, 0.18);
+  transition:
+    transform 160ms var(--ease-pop),
+    box-shadow 160ms var(--ease-smooth),
+    background-color 160ms ease;
+}
+.cta-gold:hover {
+  background: var(--color-team-gold-hi);
+  transform: translate(2px, 2px);
+  box-shadow:
+    4px 4px 0 0 #0a0f1a,
+    inset 0 -3px 0 0 rgba(0, 0, 0, 0.18);
+}
+.cta-gold:active {
+  transform: translate(6px, 6px);
+  box-shadow:
+    0 0 0 0 #0a0f1a,
+    inset 0 3px 0 0 rgba(0, 0, 0, 0.22);
+}
+
 /* ─── generic sticker button base ──────────────────────────────────
    Paint this on any button to get the sticker hover/press feel.
    Caller supplies background-color, border-color, text-color via
@@ -489,3 +520,46 @@ body {
   50%      { opacity: 1;    transform: scale(1.1);  }
 }
 .ping-dot { animation: ping-dot 1.8s ease-in-out infinite; }
+
+/* ─── winner overlay ───────────────────────────────────────────────
+   Fullscreen celebration when a team wins. Confetti bursts from the
+   center outward (biased upward); headline scales in with a bounce.
+   Driven by JS state in WinnerOverlay.tsx — these are the visual atoms. */
+
+.confetti-piece {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 8px;
+  height: 14px;
+  border-radius: 1px;
+  animation: confetti-burst 2200ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+@keyframes confetti-burst {
+  0% {
+    transform: translate(-50%, -50%) rotate(0deg) scale(0.4);
+    opacity: 0;
+  }
+  10% { opacity: 1; }
+  100% {
+    transform:
+      translate(calc(-50% + var(--tx)), calc(-50% + var(--ty)))
+      rotate(var(--rot))
+      scale(1);
+    opacity: 0;
+  }
+}
+
+.winner-headline {
+  animation: winner-headline-in 720ms var(--ease-pop) forwards;
+}
+@keyframes winner-headline-in {
+  from {
+    transform: scale(0.55);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}

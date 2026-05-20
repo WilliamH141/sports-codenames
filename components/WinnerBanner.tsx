@@ -3,11 +3,15 @@
 import { useTransition } from "react";
 import { backToLobby } from "@/app/actions";
 import type { Team } from "@/lib/types";
+import type { ViewerOutcome } from "@/components/WinnerOverlay";
 
 type Props = {
   winner: Team;
   roomId: string;
   cause?: "assassin" | "completed";
+  /** Personalizes the eyebrow chip so the persistent banner still tells
+      each viewer whether THEY won or lost, even after the overlay fades. */
+  viewerOutcome?: ViewerOutcome;
 };
 
 const STYLE: Record<Team, { band: string; text: string; bar: string }> = {
@@ -15,7 +19,24 @@ const STYLE: Record<Team, { band: string; text: string; bar: string }> = {
   blue: { band: "bg-team-blue", text: "text-team-blue", bar: "bar-blue" },
 };
 
-export default function WinnerBanner({ winner, roomId, cause }: Props) {
+const OUTCOME_LABEL: Record<ViewerOutcome, string> = {
+  won: "Victory",
+  lost: "Defeat",
+  spectator: "Final",
+};
+
+const OUTCOME_COLOR: Record<ViewerOutcome, string> = {
+  won: "text-team-gold",
+  lost: "text-muted",
+  spectator: "text-team-gold",
+};
+
+export default function WinnerBanner({
+  winner,
+  roomId,
+  cause,
+  viewerOutcome = "spectator",
+}: Props) {
   const s = STYLE[winner];
   const [pending, startTransition] = useTransition();
 
@@ -35,8 +56,10 @@ export default function WinnerBanner({ winner, roomId, cause }: Props) {
         <div>
           <div className="flex items-center gap-2">
             <span className="text-team-gold text-base leading-none">★</span>
-            <span className="font-[family-name:var(--font-display)] text-[10px] font-bold tracking-[0.4em] uppercase text-team-gold">
-              Final
+            <span
+              className={`font-[family-name:var(--font-display)] text-[10px] font-bold tracking-[0.4em] uppercase ${OUTCOME_COLOR[viewerOutcome]}`}
+            >
+              {OUTCOME_LABEL[viewerOutcome]}
             </span>
           </div>
           <div
@@ -53,7 +76,7 @@ export default function WinnerBanner({ winner, roomId, cause }: Props) {
           type="button"
           disabled={pending}
           onClick={onPlayAgain}
-          className="cta-red w-full py-3.5 px-5 text-white font-[family-name:var(--font-display)] font-black tracking-[0.2em] text-base uppercase cursor-pointer flex items-center justify-between gap-3 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0"
+          className="cta-gold w-full py-3.5 px-5 font-[family-name:var(--font-display)] font-black tracking-[0.2em] text-base uppercase cursor-pointer flex items-center justify-between gap-3 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0"
         >
           <span className="font-mono text-sm opacity-70">↻</span>
           <span className="text-lg">Play again</span>
