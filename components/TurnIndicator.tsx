@@ -47,7 +47,12 @@ export default function TurnIndicator({ team, deadline, durationSeconds, prompt,
     onExpire();
   }, [deadline, now, onExpire]);
 
-  const remainingMs = deadline
+  // We always have a deadline server-side (even with shot clock "Off", an idle
+  // backstop is set to prevent soft-locks). The visible countdown still only
+  // appears when the lobby actually configured a shot clock — otherwise the
+  // backstop should feel invisible during normal play.
+  const showClock = durationSeconds != null && deadline != null;
+  const remainingMs = showClock
     ? Math.max(0, new Date(deadline).getTime() - now)
     : null;
   const seconds = remainingMs != null ? Math.ceil(remainingMs / 1000) : null;
@@ -63,7 +68,7 @@ export default function TurnIndicator({ team, deadline, durationSeconds, prompt,
       <div className={`h-[2px] ${s.band}`} />
       <div className="relative">
         {/* Soft depleting fill underneath the content. */}
-        {deadline && (
+        {showClock && (
           <div
             className={`absolute inset-y-0 left-0 ${critical ? "bg-team-red" : s.dot} opacity-15 transition-[width] duration-200 ease-linear`}
             style={{ width: `${pct}%` }}
