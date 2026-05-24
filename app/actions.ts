@@ -97,9 +97,6 @@ export async function joinRoom(input: {
     .eq("code", input.code.toUpperCase())
     .single();
   if (roomErr || !room) throw new Error("Room not found");
-  if (room.status === "finished") {
-    throw new Error("This game already ended");
-  }
 
   // Member cap — only enforced when this is a new join (not a re-join with the
   // same playerId, which the upsert will dedupe). Count current members; if
@@ -110,6 +107,7 @@ export async function joinRoom(input: {
     .eq("room_id", room.id)
     .eq("id", input.playerId)
     .maybeSingle();
+
   if (!existingMember) {
     const { count } = await db
       .from("members")
