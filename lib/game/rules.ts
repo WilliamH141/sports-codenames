@@ -1,17 +1,23 @@
-import type { Card, CardType, Team } from "@/lib/types";
+import type { CardType, Team } from "@/lib/types";
 
 export const otherTeam = (t: Team): Team => (t === "red" ? "blue" : "red");
+
+/** Minimal card shape used by the win-check helpers. The server passes a
+    list with `card_type` populated (it has the full row); the public client
+    `Card` type doesn't expose card_type for unrevealed cards, so this stays
+    a private structural shape rather than re-using the wire type. */
+type CardForRules = { card_type: CardType; revealed: boolean };
 
 export function teamTargetCount(team: Team, startingTeam: Team): number {
   return team === startingTeam ? 9 : 8;
 }
 
-export function teamRevealedCount(cards: Card[], team: Team): number {
+export function teamRevealedCount(cards: CardForRules[], team: Team): number {
   return cards.filter((c) => c.card_type === team && c.revealed).length;
 }
 
 export function teamHasWon(
-  cards: Card[],
+  cards: CardForRules[],
   team: Team,
   startingTeam: Team
 ): boolean {
@@ -34,7 +40,7 @@ export function evaluateGuess(args: {
   currentTeam: Team;
   startingTeam: Team;
   /** Card list AFTER applying this reveal (so win checks include it). */
-  cardsAfterReveal: Card[];
+  cardsAfterReveal: CardForRules[];
   guessesRemainingBefore: number;
 }): GuessOutcome {
   const { cardType, currentTeam, startingTeam, cardsAfterReveal, guessesRemainingBefore } = args;

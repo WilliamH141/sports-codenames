@@ -3,8 +3,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getBrowserSupabase } from "@/lib/supabase/browser";
 import { getDisplayName, getOrCreatePlayerId, setDisplayName } from "@/lib/identity";
-import { expireTurn, joinRoom, revealCard, toggleCardTag } from "@/app/actions";
-import type { Card, CardTag, Member, Room, Team } from "@/lib/types";
+import {
+  expireTurn,
+  getCardKey,
+  joinRoom,
+  revealCard,
+  toggleCardTag,
+} from "@/app/actions";
+import type { Card, CardTag, CardType, Member, Room, Team } from "@/lib/types";
 import LeaveButton from "@/components/LeaveButton";
 import HowToPlayButton from "@/components/HowToPlayButton";
 import Board from "@/components/Board";
@@ -92,6 +98,10 @@ export default function RoomClient({
   const [members, setMembers] = useState<Member[]>(initialMembers);
   const [cards, setCards] = useState<Card[]>(initialCards);
   const [tags, setTags] = useState<CardTag[]>(initialTags);
+  // Map cardId → true color, populated only when the viewer is authorized
+  // (their seat is coach, or the game has ended). Never includes unrevealed
+  // colors for regular players.
+  const [cardKey, setCardKey] = useState<Map<string, CardType> | null>(null);
   const [playerId, setPlayerId] = useState<string>("");
   const [needsName, setNeedsName] = useState<boolean>(false);
   const [revealing, setRevealing] = useState(false);
@@ -227,10 +237,45 @@ export default function RoomClient({
 
   const me = useMemo(() => members.find((m) => m.id === playerId) ?? null, [members, playerId]);
 
+  // Fetch the spymaster key when the viewer is allowed to see it: they're a
+  // coach during play, or the game has finished (everyone sees the full board).
+  // Re-fetches on transitions (e.g. promoted to coach mid-lobby, game ends,
+  // or a fresh game starts after "play again" — cards have new ids).
+  const myRole = me?.role ?? null;
+  const status = room.status;
+  const cardCount = cards.length;
+  useEffect(() => {
+    if (!playerId) return;
+    const allowed = status === "finished" || myRole === "coach";
+    if (!allowed) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setCardKey((prev) => (prev ? null : prev));
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const rows = await getCardKey({ roomId: room.id, playerId });
+        if (cancelled) return;
+        const next = new Map<string, CardType>();
+        for (const r of rows) next.set(r.id, r.card_type);
+        setCardKey(next);
+      } catch {
+        // Auth/network failure: leave the key empty. The board will keep
+        // rendering revealed colors via revealed_card_type, just without
+        // the spymaster's bird's-eye view.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // cardCount: refresh when the deck resets (back-to-lobby → new ids on tip-off).
+  }, [playerId, room.id, status, myRole, cardCount]);
+
   const remaining = useMemo(() => {
     const target = (team: Team) => (team === room.starting_team ? 9 : 8);
     const used = (team: Team) =>
-      cards.filter((c) => c.card_type === team && c.revealed).length;
+      cards.filter((c) => c.revealed_card_type === team).length;
     return {
       red: target("red") - used("red"),
       blue: target("blue") - used("blue"),
@@ -252,17 +297,18 @@ export default function RoomClient({
   const winCause: WinCause = useMemo(() => {
     if (room.status !== "finished" || !room.winner) return "final";
     const assassinDown = cards.some(
-      (c) => c.card_type === "assassin" && c.revealed
+      (c) => c.revealed_card_type === "assassin"
     );
     if (assassinDown) return "assassin";
+    if (!cardKey) return "final";
     const loser: Team = room.winner === "red" ? "blue" : "red";
     const loserLeft = cards.filter(
-      (c) => c.card_type === loser && !c.revealed
+      (c) => !c.revealed && cardKey.get(c.id) === loser
     ).length;
     if (loserLeft >= 5) return "blowout";
     if (loserLeft <= 2) return "buzzer";
     return "final";
-  }, [cards, room.status, room.winner]);
+  }, [cards, cardKey, room.status, room.winner]);
 
   // Fire the overlay only on the playing→finished transition during this
   // session. Joining a room that's already finished does NOT trigger it.
@@ -465,6 +511,7 @@ export default function RoomClient({
               cards={cards}
               members={members}
               tags={tags}
+              cardKey={cardKey}
               playerId={playerId}
               viewerRole={me?.role ?? null}
               viewerTeam={me?.team ?? null}

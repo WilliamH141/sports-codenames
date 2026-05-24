@@ -7,7 +7,7 @@ import { generateRoomCode } from "@/lib/game/codes";
 import { dealBoard } from "@/lib/game/deal";
 import { rateLimit } from "@/lib/ratelimit";
 import { evaluateGuess, otherTeam } from "@/lib/game/rules";
-import type { Card, Role, Sport, Team } from "@/lib/types";
+import type { CardKey, CardType, Role, Sport, Team } from "@/lib/types";
 
 const CODE_RETRY_LIMIT = 8;
 const ALLOWED_TURN_DURATIONS = [60, 90, 120] as const;
@@ -22,8 +22,15 @@ async function getClientIp(): Promise<string> {
   if (fwd) return fwd.split(",")[0]!.trim();
   return h.get("x-real-ip") ?? "unknown";
 }
-const nextDeadline = (seconds: number | null): string | null =>
-  seconds == null ? null : new Date(Date.now() + seconds * 1000).toISOString();
+/** Idle-backstop ceiling used when the room's shot clock is "Off". Prevents a
+    soft-lock where the active team's players all disconnect and no one else
+    can flip the turn. 30 minutes is generous enough that real human play won't
+    hit it; abandoned games eventually auto-flip and the cleanup cron picks
+    them up after that. */
+const IDLE_BACKSTOP_SECONDS = 30 * 60;
+
+const nextDeadline = (seconds: number | null): string =>
+  new Date(Date.now() + (seconds ?? IDLE_BACKSTOP_SECONDS) * 1000).toISOString();
 
 export async function createRoom(sport: Sport = "nba"): Promise<never> {
   // Per-IP cap on new rooms. A single bad actor could spawn many rooms
@@ -86,10 +93,13 @@ export async function joinRoom(input: {
 
   const { data: room, error: roomErr } = await db
     .from("rooms")
-    .select("id")
+    .select("id, status")
     .eq("code", input.code.toUpperCase())
     .single();
   if (roomErr || !room) throw new Error("Room not found");
+  if (room.status === "finished") {
+    throw new Error("This game already ended");
+  }
 
   // Member cap — only enforced when this is a new join (not a re-join with the
   // same playerId, which the upsert will dedupe). Count current members; if
@@ -148,7 +158,9 @@ export async function setTeamRole(input: {
 
   // Mid-game seat changes: only newcomers (no team or role yet) may claim a
   // seat. Existing players can't switch teams or roles mid-game — that would
-  // break the game state. In lobby, anything goes.
+  // break the game state. In lobby, anything goes. Also disallow force-kick
+  // of an existing coach mid-game — even an unseated spectator could otherwise
+  // boot a live coach by claiming the seat with force=true.
   if (room.status === "playing") {
     const { data: caller } = await db
       .from("members")
@@ -158,6 +170,9 @@ export async function setTeamRole(input: {
       .maybeSingle();
     if (caller?.team && caller?.role) {
       throw new Error("Can't change seats once the game has started");
+    }
+    if (input.force) {
+      throw new Error("Can't kick a coach mid-game");
     }
   }
 
@@ -515,17 +530,38 @@ export async function revealCard(input: {
   if (cardErr || !targetCard) throw new Error("Card not found");
   if (targetCard.revealed) return;
 
+  // Conditional UPDATE wins the race: only one concurrent caller flips a given
+  // card from revealed=false → true. If `count` comes back as 0, someone else
+  // already revealed this card and we bail before mutating room state, so we
+  // never double-decrement guesses_remaining or double-flip the turn.
+  const { error: revealErr, count: revealedCount } = await db
+    .from("cards")
+    .update(
+      {
+        revealed: true,
+        revealed_by_team: member.team,
+        revealed_card_type: targetCard.card_type,
+      },
+      { count: "exact" }
+    )
+    .eq("id", targetCard.id)
+    .eq("revealed", false);
+  if (revealErr) throw new Error(revealErr.message);
+  if (!revealedCount) return;
+
   const { data: existingCards, error: listErr } = await db
     .from("cards")
-    .select("id, room_id, position, player_name, card_type, revealed, revealed_by_team")
+    .select("id, room_id, position, player_name, card_type, revealed, revealed_by_team, revealed_card_type")
     .eq("room_id", input.roomId);
   if (listErr || !existingCards) throw new Error(listErr?.message ?? "Read failed");
 
-  const cardsAfter: Card[] = existingCards.map((c) =>
-    c.id === targetCard.id
-      ? { ...(c as Card), revealed: true, revealed_by_team: member.team }
-      : (c as Card)
-  );
+  // existingCards already reflects the conditional update we just made, so the
+  // card list is authoritative for the win/turn-flip check below. evaluateGuess
+  // only reads card_type + revealed off these rows.
+  const cardsAfter = existingCards as unknown as Array<{
+    card_type: CardType;
+    revealed: boolean;
+  }>;
 
   const outcome = evaluateGuess({
     cardType: targetCard.card_type,
@@ -534,12 +570,6 @@ export async function revealCard(input: {
     cardsAfterReveal: cardsAfter,
     guessesRemainingBefore: room.guesses_remaining ?? 0,
   });
-
-  const { error: revealErr } = await db
-    .from("cards")
-    .update({ revealed: true, revealed_by_team: member.team })
-    .eq("id", targetCard.id);
-  if (revealErr) throw new Error(revealErr.message);
 
   // The revealed card no longer needs tags; clear them. If the turn is also
   // ending (caught below) we'll wipe the whole room's tags after the patch.
@@ -580,7 +610,16 @@ export async function revealCard(input: {
   }
 
   if (Object.keys(roomPatch).length) {
-    const { error } = await db.from("rooms").update(roomPatch).eq("id", input.roomId);
+    // Guard the room patch with the clue word we read at the top of the call.
+    // If a sibling reveal (different card, same team, racing) already ended
+    // the turn (current_clue_word → null) or the next coach already submitted
+    // a new clue, this update affects 0 rows and we leave the room alone —
+    // the winner of the race has already written the correct state.
+    const { error } = await db
+      .from("rooms")
+      .update(roomPatch)
+      .eq("id", input.roomId)
+      .eq("current_clue_word", room.current_clue_word);
     if (error) throw new Error(error.message);
   }
 
@@ -710,4 +749,49 @@ export async function expireTurn(roomId: string): Promise<void> {
 
   // Tags were tied to the expired turn — wipe them.
   await db.from("card_tags").delete().eq("room_id", roomId);
+}
+
+/**
+ * Returns the full color key for every card in the room.
+ *
+ * Authorization: caller must be a member of the room AND either a coach,
+ * OR the room must already be finished (game over reveal). Anyone else
+ * gets an empty array — they shouldn't be peeking at unrevealed colors.
+ *
+ * The `card_type` column is revoked from anon at the DB level, so this is
+ * the only path by which a client can ever see the spymaster grid.
+ */
+export async function getCardKey(input: {
+  roomId: string;
+  playerId: string;
+}): Promise<CardKey[]> {
+  const db = getServerSupabase();
+
+  const { data: room } = await db
+    .from("rooms")
+    .select("status")
+    .eq("id", input.roomId)
+    .maybeSingle();
+  if (!room) return [];
+
+  const isFinished = room.status === "finished";
+
+  if (!isFinished) {
+    // Mid-game: only coaches see the key. UUID shape check first so we don't
+    // hand back data if a caller passes a malformed playerId.
+    if (!/^[0-9a-f-]{36}$/i.test(input.playerId)) return [];
+    const { data: member } = await db
+      .from("members")
+      .select("role")
+      .eq("room_id", input.roomId)
+      .eq("id", input.playerId)
+      .maybeSingle();
+    if (!member || member.role !== "coach") return [];
+  }
+
+  const { data: cards } = await db
+    .from("cards")
+    .select("id, card_type")
+    .eq("room_id", input.roomId);
+  return (cards ?? []) as CardKey[];
 }

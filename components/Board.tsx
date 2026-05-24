@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import type {
   Card as CardModel,
   CardTag,
+  CardType,
   Member,
   Role,
   Team,
@@ -14,6 +15,10 @@ type Props = {
   cards: CardModel[];
   members: Member[];
   tags: CardTag[];
+  /** Authorized color key — populated for coaches during play and for everyone
+      once the game ends. Null/empty for regular players: their UI can only
+      color in cards that have been flipped. */
+  cardKey: Map<string, CardType> | null;
   playerId: string;
   viewerRole: Role | null;
   viewerTeam: Team | null;
@@ -37,6 +42,7 @@ export default function Board({
   cards,
   members,
   tags,
+  cardKey,
   playerId,
   viewerRole,
   viewerTeam,
@@ -47,7 +53,10 @@ export default function Board({
   onCardClick,
   onToggleTag,
 }: Props) {
-  const showKey = gameOver || viewerRole === "coach";
+  // showKey gates the color-tinted front face. Even after gameOver we need the
+  // key map to know each card's color — without it we fall back to "no key"
+  // (still safe; revealed colors come from revealed_card_type on the back face).
+  const showKey = (gameOver || viewerRole === "coach") && cardKey != null;
   const sorted = [...cards].sort((a, b) => a.position - b.position);
 
   const canClick =
@@ -95,10 +104,15 @@ export default function Board({
       {sorted.map((card) => {
         const cardTags = tagsByCard.get(card.id) ?? [];
         const myTag = cardTags.some((t) => t.isMe);
+        // True color comes from the authorized key for the front face. For
+        // the back face (revealed cards), revealed_card_type carries the same
+        // info — that one is always safe to ship.
+        const keyType = cardKey?.get(card.id) ?? null;
         return (
           <Card
             key={card.id}
             card={card}
+            keyType={keyType}
             showKey={showKey}
             gameOver={gameOver}
             clickable={canClick}

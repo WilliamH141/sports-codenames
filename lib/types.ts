@@ -31,15 +31,24 @@ export type Member = {
   joined_at: string;
 };
 
+/** Public card row — what anon clients see. `card_type` is intentionally
+    omitted; unrevealed colors live in a column anon roles can't read. The
+    coach view fetches the full key separately via getCoachKey. */
 export type Card = {
   id: string;
   room_id: string;
   position: number;
   player_name: string;
-  card_type: CardType;
   revealed: boolean;
   revealed_by_team: Team | null;
+  /** Set when revealed=true; null otherwise. Safe to ship to all clients. */
+  revealed_card_type: CardType | null;
 };
+
+/** Coach/end-game view: maps a card id to its true color. Fetched via a
+    server action that verifies the caller is the coach (or the game has
+    ended). Never fetched by regular players during play. */
+export type CardKey = { id: string; card_type: CardType };
 
 export type CardTag = {
   card_id: string;

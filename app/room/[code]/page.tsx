@@ -24,9 +24,12 @@ export default async function RoomPage({ params }: { params: Params }) {
       .from("members")
       .select("id, room_id, display_name, team, role, joined_at")
       .eq("room_id", room.id),
+    // Intentionally NO card_type here — the column is also revoked at the DB
+    // level for anon roles. Coaches/end-game viewers fetch the full key via
+    // getCardKey on the client.
     db
       .from("cards")
-      .select("id, room_id, position, player_name, card_type, revealed, revealed_by_team")
+      .select("id, room_id, position, player_name, revealed, revealed_by_team, revealed_card_type")
       .eq("room_id", room.id),
     db
       .from("card_tags")

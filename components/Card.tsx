@@ -5,6 +5,11 @@ import type { CardTagInfo } from "./Board";
 
 type Props = {
   card: CardModel;
+  /** True color for this card, or null when the viewer isn't authorized to see
+      it (regular players during play). Used to tint the front face when showKey
+      is on. Doesn't affect the back face — that uses revealed_card_type, which
+      is always populated server-side at the moment of reveal. */
+  keyType: CardType | null;
   showKey: boolean; // coach view OR game over
   /** True when the game has finished. Triggers the cascade-flip reveal of
       every card that wasn't manually flipped during play. */
@@ -50,6 +55,7 @@ function splitName(full: string): { first: string; last: string } {
 
 export default function Card({
   card,
+  keyType,
   showKey,
   gameOver,
   clickable,
@@ -62,8 +68,15 @@ export default function Card({
 }: Props) {
   const canTap = clickable && !card.revealed;
   const canFlag = taggable && !card.revealed;
-  const frontTileClass = showKey ? `tile ${KEY_CLASS[card.card_type]}` : "tile";
-  const backTileClass = `tile ${REVEALED_CLASS[card.card_type]}`;
+  // Front face color: only when authorized + key has loaded. Back face color:
+  // populated when revealed; falls back to `keyType` if a viewer who just
+  // gained authorization is looking at an already-revealed card (rare, since
+  // revealed_card_type is set at reveal time).
+  const frontTileClass =
+    showKey && keyType ? `tile ${KEY_CLASS[keyType]}` : "tile";
+  const backType: CardType =
+    card.revealed_card_type ?? keyType ?? "neutral";
+  const backTileClass = `tile ${REVEALED_CLASS[backType]}`;
   // Flip when the card was revealed during play OR when the game ended (in
   // which case we auto-reveal every remaining card). Cards that flip from
   // game-end get a staggered transition-delay so the board reveals as a
@@ -106,7 +119,7 @@ export default function Card({
           <div className={`face face-back ${backTileClass}`}>
             <Nameplate
               name={card.player_name}
-              tag={REVEAL_TAG[card.card_type]}
+              tag={REVEAL_TAG[backType]}
             />
           </div>
         </div>
