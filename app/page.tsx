@@ -1,11 +1,26 @@
 import { redirect } from "next/navigation";
 import { createRoom } from "@/app/actions";
 import HowToPlayButton from "@/components/HowToPlayButton";
+import JoinCodeForm, { type JoinByCodeState } from "@/components/JoinCodeForm";
+import { getServerSupabase } from "@/lib/supabase/server";
 
-async function joinByCode(formData: FormData) {
+async function joinByCode(
+  _prev: JoinByCodeState,
+  formData: FormData
+): Promise<JoinByCodeState> {
   "use server";
   const raw = String(formData.get("code") ?? "").trim().toUpperCase();
-  if (!raw) return;
+  if (!raw) return { error: "Enter a room code" };
+  // Cheap existence check before redirecting — if the code's bogus we keep the
+  // user on the home page with an inline error instead of sending them through
+  // a redirect + 404. Codes are short and indexed, so this is fast.
+  const db = getServerSupabase();
+  const { data: room } = await db
+    .from("rooms")
+    .select("code")
+    .eq("code", raw)
+    .maybeSingle();
+  if (!room) return { error: `No game with code ${raw}` };
   redirect(`/room/${encodeURIComponent(raw)}`);
 }
 
@@ -76,26 +91,7 @@ export default function Home() {
           </div>
 
           {/* Code entry */}
-          <form action={joinByCode} className="mt-4 w-full flex gap-2">
-            <input
-              name="code"
-              type="text"
-              maxLength={6}
-              placeholder="XXXX"
-              autoCapitalize="characters"
-              autoComplete="off"
-              spellCheck={false}
-              className="card-surface flex-1 px-4 py-4 font-[family-name:var(--font-display)] font-black text-3xl sm:text-4xl tracking-[0.45em] text-center text-ink uppercase placeholder:text-dim/50 outline-none transition-shadow caret-team-gold focus:border-team-gold focus:[box-shadow:5px_5px_0_0_#000,0_0_28px_-6px_rgba(253,185,39,0.55)]"
-              required
-            />
-            <button
-              type="submit"
-              className="cta-blue px-5 font-[family-name:var(--font-display)] tracking-[0.22em] text-sm font-black uppercase cursor-pointer"
-              aria-label="Join room"
-            >
-              Join →
-            </button>
-          </form>
+          <JoinCodeForm action={joinByCode} />
         </div>
       </div>
     </main>
