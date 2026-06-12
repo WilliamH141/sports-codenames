@@ -74,15 +74,24 @@ export default function Card({
   // revealed_card_type is set at reveal time).
   const frontTileClass =
     showKey && keyType ? `tile ${KEY_CLASS[keyType]}` : "tile";
-  const backType: CardType =
-    card.revealed_card_type ?? keyType ?? "neutral";
-  const backTileClass = `tile ${REVEALED_CLASS[backType]}`;
+  // Back-face color comes from revealed_card_type when the card was flipped
+  // during play, or from the spymaster key once it's loaded. We don't fall
+  // back to a default — if neither is known yet (non-coach during the brief
+  // window between status="finished" and the getCardKey fetch landing), we
+  // simply don't flip the card. Without this gate the end-game cascade
+  // briefly painted every unrevealed tile beige before snapping to its real
+  // color when the key arrived.
+  const backType: CardType | null =
+    card.revealed_card_type ?? keyType ?? null;
+  const backTileClass = backType
+    ? `tile ${REVEALED_CLASS[backType]}`
+    : "tile";
   // Flip when the card was revealed during play OR when the game ended (in
   // which case we auto-reveal every remaining card). Cards that flip from
   // game-end get a staggered transition-delay so the board reveals as a
   // left-to-right cascade — feels like a final scoreboard reveal instead of
   // an instant state change.
-  const flipped = card.revealed || gameOver;
+  const flipped = card.revealed || (gameOver && backType !== null);
   const flipDelayMs =
     gameOver && !card.revealed ? 80 + card.position * 50 : 0;
   const teamColor = tagTeam === "red" ? "bg-team-red" : "bg-team-blue";
@@ -119,7 +128,7 @@ export default function Card({
           <div className={`face face-back ${backTileClass}`}>
             <Nameplate
               name={card.player_name}
-              tag={REVEAL_TAG[backType]}
+              tag={backType ? REVEAL_TAG[backType] : null}
             />
           </div>
         </div>
