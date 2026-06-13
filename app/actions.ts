@@ -204,7 +204,15 @@ export async function setTeamRole(input: {
     .update({ team: input.team, role: input.role })
     .eq("room_id", input.roomId)
     .eq("id", input.playerId);
-  if (error) throw new Error(`Failed to set role: ${error.message}`);
+  if (error) {
+    // 23505 here means the members_one_coach_per_team partial index fired —
+    // another concurrent claim won the coach seat in between our check and
+    // our write. Surface as the same friendly error as the pre-flight check.
+    if (error.code === "23505" && input.role === "coach" && input.team) {
+      throw new Error(`${input.team} already has a coach`);
+    }
+    throw new Error(`Failed to set role: ${error.message}`);
+  }
 }
 
 /** Lobby-only: clear every member's team + role, sending the whole room back
@@ -349,7 +357,11 @@ export async function startGame(roomId: string): Promise<void> {
         card_type: s.card_type,
       }))
     );
-    if (cardsError)
+    // 23505 = the (room_id, position) unique constraint fired, meaning a
+    // sibling Tip-off click already seeded the board between our count check
+    // and our insert. That's the same outcome we want — silently fall through
+    // and update the status. Any other DB error is real.
+    if (cardsError && cardsError.code !== "23505")
       throw new Error(`Failed to seed board: ${cardsError.message}`);
   }
 
