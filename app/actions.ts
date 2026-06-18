@@ -267,6 +267,17 @@ export async function randomizeTeams(roomId: string): Promise<void> {
     [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
   }
 
+  // Wipe every seat first as a single bulk update. Without this, a parallel
+  // reassign can race the one-coach-per-team partial unique index: if the
+  // incoming red coach's update runs before the outgoing red coach's update,
+  // the DB rejects the second insert and Promise.all (combined with the old
+  // swallow-the-error `.then`) hid the failure, leaving the team coachless.
+  const { error: resetErr } = await db
+    .from("members")
+    .update({ team: null, role: null })
+    .eq("room_id", roomId);
+  if (resetErr) throw new Error(resetErr.message);
+
   // Split as evenly as possible; first of each half is coach, rest are players.
   const half = Math.ceil(shuffled.length / 2);
   const updates = shuffled.map((m, i) => {
@@ -277,10 +288,12 @@ export async function randomizeTeams(roomId: string): Promise<void> {
       .from("members")
       .update({ team, role })
       .eq("room_id", roomId)
-      .eq("id", m.id)
-      .then((r) => r);
+      .eq("id", m.id);
   });
-  await Promise.all(updates);
+  const results = await Promise.all(updates);
+  for (const r of results) {
+    if (r.error) throw new Error(`Failed to randomize teams: ${r.error.message}`);
+  }
 }
 
 /** Lobby-only: change the shot clock for upcoming turns. `seconds` must be one
