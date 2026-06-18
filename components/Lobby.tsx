@@ -60,6 +60,7 @@ export default function Lobby({
 }: Props) {
   const [pending, startTransition] = useTransition();
   const [copied, setCopied] = useState(false);
+  const [linkCopied, setLinkCopied] = useState(false);
   const me = members.find((m) => m.id === playerId) ?? null;
   const isOffline = (id: string) =>
     presenceLoaded && onlineMemberIds != null && !onlineMemberIds.has(id);
@@ -131,6 +132,19 @@ export default function Lobby({
     }
   };
 
+  const copyLink = async () => {
+    // Build the URL client-side so dev / preview / prod all get the right
+    // origin without threading an env var into the lobby.
+    const url = `${window.location.origin}/room/${code}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      setLinkCopied(true);
+      setTimeout(() => setLinkCopied(false), 1800);
+    } catch {
+      // Same non-https fallback as copyCode — silently no-op.
+    }
+  };
+
   const teamsReady = (["red", "blue"] as Team[]).every((t) => {
     const list = members.filter((m) => m.team === t);
     return (
@@ -144,7 +158,9 @@ export default function Lobby({
   return (
     <div className="w-full max-w-6xl mx-auto flex flex-col gap-5 sm:gap-7 stagger">
       {/* Room code — the code itself is the copy target. One big tap area,
-          perfectly centered, with a brief feedback state on copy. */}
+          perfectly centered, with a brief feedback state on copy. The link
+          shortcut underneath copies the full URL for chat-paste flows where
+          the friend hasn't memorized the home page. */}
       <div className="flex flex-col items-center gap-2">
         <span className="font-[family-name:var(--font-display)] text-[10px] font-black tracking-[0.4em] uppercase text-dim">
           {copied ? "✓ Copied" : "Tap to copy room code"}
@@ -158,6 +174,15 @@ export default function Lobby({
           {code}
         </button>
         <div className="vs-rule w-32 sm:w-44 mt-1" />
+        <button
+          type="button"
+          onClick={copyLink}
+          className="sticker-btn mt-1 px-3 py-1.5 font-[family-name:var(--font-display)] text-[10px] font-black tracking-[0.25em] uppercase border-border bg-surface text-ink hover:border-team-gold hover:text-team-gold cursor-pointer flex items-center gap-1.5"
+          aria-label="Copy invite link"
+        >
+          <span className="text-sm opacity-70">⎘</span>
+          <span>{linkCopied ? "✓ Link copied" : "Copy invite link"}</span>
+        </button>
       </div>
 
       {/* Three-panel grid — desktop: red | controls | blue. mobile: red+blue, controls full-width below. */}
