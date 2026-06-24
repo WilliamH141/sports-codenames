@@ -20,6 +20,7 @@ import EndTurnButton from "@/components/EndTurnButton";
 import JoinModal from "@/components/JoinModal";
 import Lobby from "@/components/Lobby";
 import SeatPicker from "@/components/SeatPicker";
+import SpectatorBadge from "@/components/SpectatorBadge";
 import TeamPanel from "@/components/TeamPanel";
 import TeamPanelRail from "@/components/TeamPanelRail";
 import TurnIndicator from "@/components/TurnIndicator";
@@ -237,6 +238,14 @@ export default function RoomClient({
 
   const me = useMemo(() => members.find((m) => m.id === playerId) ?? null, [members, playerId]);
 
+  // Connected viewers who haven't taken a seat — they aren't shown in either
+  // team rail, so this is the only place they surface. Gated on presence
+  // having loaded so we don't briefly flash a stale/zero count.
+  const spectatorCount = useMemo(() => {
+    if (!presenceLoaded) return 0;
+    return members.filter((m) => !m.team && onlineMemberIds.has(m.id)).length;
+  }, [members, onlineMemberIds, presenceLoaded]);
+
   // Fetch the spymaster key when the viewer is allowed to see it: they're a
   // coach during play, or the game has finished (everyone sees the full board).
   // Re-fetches on transitions (e.g. promoted to coach mid-lobby, game ends,
@@ -421,6 +430,7 @@ export default function RoomClient({
             </span>
           </div>
           <div className="flex items-center gap-4">
+            <SpectatorBadge count={spectatorCount} />
             <span className="font-[family-name:var(--font-display)] text-xs font-bold tracking-[0.28em] uppercase">
               <span className="text-dim">Room</span>{" "}
               <span className="text-ink ml-1">{room.code}</span>
