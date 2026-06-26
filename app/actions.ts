@@ -6,8 +6,8 @@ import { getServerSupabase } from "@/lib/supabase/server";
 import { generateRoomCode } from "@/lib/game/codes";
 import { dealBoard } from "@/lib/game/deal";
 import { rateLimit } from "@/lib/ratelimit";
-import { evaluateGuess, otherTeam } from "@/lib/game/rules";
-import type { CardKey, CardType, Role, Sport, Team } from "@/lib/types";
+import { otherTeam } from "@/lib/game/rules";
+import type { CardKey, Role, Sport, Team } from "@/lib/types";
 
 const CODE_RETRY_LIMIT = 8;
 const ALLOWED_TURN_DURATIONS = [60, 90, 120] as const;
@@ -516,141 +516,17 @@ export async function revealCard(input: {
 }): Promise<void> {
   const db = getServerSupabase();
 
-  const { data: room, error: roomErr } = await db
-    .from("rooms")
-    .select(
-      "id, status, current_team, starting_team, current_clue_word, guesses_remaining, turn_duration_seconds"
-    )
-    .eq("id", input.roomId)
-    .single();
-  if (roomErr || !room) throw new Error("Room not found");
-  // Soft no-op on race conditions: the click arrived after the state moved on
-  // (turn ended, game finished, card already revealed by a teammate). Realtime
-  // will sync the client to the truth shortly; surfacing an error would be noise.
-  if (room.status !== "playing") return;
-  if (!room.current_clue_word) return;
-
-  const { data: member, error: mErr } = await db
-    .from("members")
-    .select("team, role")
-    .eq("room_id", input.roomId)
-    .eq("id", input.playerId)
-    .single();
-  if (mErr || !member) throw new Error("You are not in this room");
-  if (member.role !== "player" || member.team !== room.current_team) {
-    // Most commonly hit when the turn flips mid-click. Real authorization
-    // errors (caller isn't a player at all) are rare and indistinguishable
-    // here, so we treat both as silent no-ops to keep the table calm.
-    return;
-  }
-
-  const { data: targetCard, error: cardErr } = await db
-    .from("cards")
-    .select("id, card_type, revealed, room_id")
-    .eq("id", input.cardId)
-    .eq("room_id", input.roomId)
-    .single();
-  if (cardErr || !targetCard) throw new Error("Card not found");
-  if (targetCard.revealed) return;
-
-  // Conditional UPDATE wins the race: only one concurrent caller flips a given
-  // card from revealed=false → true. If `count` comes back as 0, someone else
-  // already revealed this card and we bail before mutating room state, so we
-  // never double-decrement guesses_remaining or double-flip the turn.
-  const { error: revealErr, count: revealedCount } = await db
-    .from("cards")
-    .update(
-      {
-        revealed: true,
-        revealed_by_team: member.team,
-        revealed_card_type: targetCard.card_type,
-      },
-      { count: "exact" }
-    )
-    .eq("id", targetCard.id)
-    .eq("revealed", false);
-  if (revealErr) throw new Error(revealErr.message);
-  if (!revealedCount) return;
-
-  const { data: existingCards, error: listErr } = await db
-    .from("cards")
-    .select("id, room_id, position, player_name, card_type, revealed, revealed_by_team, revealed_card_type")
-    .eq("room_id", input.roomId);
-  if (listErr || !existingCards) throw new Error(listErr?.message ?? "Read failed");
-
-  // existingCards already reflects the conditional update we just made, so the
-  // card list is authoritative for the win/turn-flip check below. evaluateGuess
-  // only reads card_type + revealed off these rows.
-  const cardsAfter = existingCards as unknown as Array<{
-    card_type: CardType;
-    revealed: boolean;
-  }>;
-
-  const outcome = evaluateGuess({
-    cardType: targetCard.card_type,
-    currentTeam: room.current_team as Team,
-    startingTeam: room.starting_team as Team,
-    cardsAfterReveal: cardsAfter,
-    guessesRemainingBefore: room.guesses_remaining ?? 0,
+  // reveal_card() does the flip, win/turn check and guess decrement in one txn
+  // with the room row locked, so two teammates tapping at once can't both
+  // decrement the same guesses_remaining. Its logic mirrors evaluateGuess() in
+  // lib/game/rules.ts — keep them in sync. Raises on not-found, no-ops on the
+  // turn-flipped / already-revealed races, same as the old inline version.
+  const { error } = await db.rpc("reveal_card", {
+    p_room_id: input.roomId,
+    p_card_id: input.cardId,
+    p_player_id: input.playerId,
   });
-
-  // The revealed card no longer needs tags; clear them. If the turn is also
-  // ending (caught below) we'll wipe the whole room's tags after the patch.
-  await db.from("card_tags").delete().eq("card_id", targetCard.id);
-
-  // Find the current (latest) clue id for history.
-  const { data: latestClue } = await db
-    .from("clues")
-    .select("id")
-    .eq("room_id", input.roomId)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  await db.from("guesses").insert({
-    room_id: input.roomId,
-    clue_id: latestClue?.id ?? null,
-    card_id: targetCard.id,
-    guesser_id: input.playerId,
-  });
-
-  const roomPatch: Record<string, unknown> = {};
-  if (outcome.status === "finished") {
-    roomPatch.status = "finished";
-    roomPatch.winner = outcome.winner;
-    roomPatch.current_clue_word = null;
-    roomPatch.current_clue_count = null;
-    roomPatch.guesses_remaining = null;
-    roomPatch.turn_deadline = null;
-  } else if (outcome.endsTurn) {
-    roomPatch.current_team = otherTeam(room.current_team as Team);
-    roomPatch.current_clue_word = null;
-    roomPatch.current_clue_count = null;
-    roomPatch.guesses_remaining = null;
-    roomPatch.turn_deadline = nextDeadline(room.turn_duration_seconds);
-  } else if (outcome.decrementsGuess) {
-    roomPatch.guesses_remaining = (room.guesses_remaining ?? 0) - 1;
-  }
-
-  if (Object.keys(roomPatch).length) {
-    // Guard the room patch with the clue word we read at the top of the call.
-    // If a sibling reveal (different card, same team, racing) already ended
-    // the turn (current_clue_word → null) or the next coach already submitted
-    // a new clue, this update affects 0 rows and we leave the room alone —
-    // the winner of the race has already written the correct state.
-    const { error } = await db
-      .from("rooms")
-      .update(roomPatch)
-      .eq("id", input.roomId)
-      .eq("current_clue_word", room.current_clue_word);
-    if (error) throw new Error(error.message);
-  }
-
-  // Turn flipped or game over → clear every tag in the room. Tags are a
-  // per-guess-phase coordination tool, not persisted across turns.
-  if (outcome.endsTurn || outcome.status === "finished") {
-    await db.from("card_tags").delete().eq("room_id", input.roomId);
-  }
+  if (error) throw new Error(error.message);
 }
 
 export async function endTurn(input: {
