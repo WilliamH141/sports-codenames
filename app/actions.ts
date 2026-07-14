@@ -440,7 +440,13 @@ export async function submitClue(input: {
     .single();
   if (clueErr || !clue) throw new Error(clueErr?.message ?? "Insert failed");
 
-  const { error: roomUpdErr } = await db
+  // The shot clock is ticking during the clue phase, so any client's timer can
+  // fire expireTurn and flip current_team in the gap between our read above and
+  // this write. If that happens, an unconditional update would arm this clue on
+  // whatever team is current now, and they'd end up guessing a clue that was
+  // never theirs. So only write if the turn still looks like the one we checked:
+  // same current_team, still no clue. Same trick expireTurn uses.
+  const { data: updated, error: roomUpdErr } = await db
     .from("rooms")
     .update({
       current_clue_word: word,
@@ -448,8 +454,19 @@ export async function submitClue(input: {
       guesses_remaining: input.count + 1,
       turn_deadline: nextDeadline(room.turn_duration_seconds),
     })
-    .eq("id", input.roomId);
+    .eq("id", input.roomId)
+    .eq("current_team", room.current_team)
+    .is("current_clue_word", null)
+    .select("id");
   if (roomUpdErr) throw new Error(roomUpdErr.message);
+
+  // Nothing updated means the turn moved out from under us. Drop the clue row
+  // we just inserted so reveal_card can't grab it as the latest clue, and tell
+  // the coach to try again.
+  if (!updated || updated.length === 0) {
+    await db.from("clues").delete().eq("id", clue.id);
+    throw new Error("Turn changed before your clue landed — try again");
+  }
 }
 
 /** Toggle the caller's tag on a card. Tags are an in-turn coordination tool —
